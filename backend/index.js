@@ -86,7 +86,11 @@ app.post('/api/login', (req, res) => {
 });
 
 app.get('/api/habitaciones', (req, res) => {
-    const sql = 'SELECT * FROM habitaciones';
+    const sql = `SELECT h.*, c.nombre_completo AS cliente_nombre
+                FROM habitaciones h
+                LEFT JOIN rentas r ON h.id = r.habitacion_id AND r.estado_renta = 'ACTIVA'
+                LEFT JOIN clientes c ON r.cliente_id = c.id
+    `;
 
     db.query(sql, (error, results) => {
         if (error) {
@@ -212,14 +216,64 @@ app.post('/api/checkin', (req, res) => {
     });
 });
 
+app.post('/api/reservaciones', (req, res) => {
+    const { habitacion_id, nombre_completo, direccion, celular, precio_cobrado, usuario_recepcion_id } = req.body;
+
+    if (!habitacion_id || !nombre_completo || !direccion || !celular || !precio_cobrado || !usuario_recepcion_id) {
+        return res.status(400).json({
+            success: false,
+            message: 'Todos los campos son obligatorios'
+        });
+    }
+
+    const sqlVerificar = 'SELECT estado FROM habitaciones WHERE id = ?';
+    db.query(sqlVerificar, [habitacion_id], (error, results) => {
+        if (error || results.length === 0 || results[0].estado !== 'LIBRE_LIMPIA') {
+            return res.status(400).json({
+                success: false,
+                message: 'La habitación no está disponible para reservación'
+            });
+        }
+
+        const sqlCliente = 'INSERT INTO clientes (nombre_completo, direccion, celular) VALUES (?, ?, ?)';
+        db.query(sqlCliente, [nombre_completo, direccion, celular], (error, resultCliente) => {
+            if (error) {
+                return res.status(500).json({ success: false, message: 'Error al registrar al cliente' });
+            }
+
+            const cliente_id = resultCliente.insertId;
+            const sqlRenta = `INSERT INTO rentas (habitacion_id, cliente_id, precio_cobrado, usuario_recepcion_id, estado_renta) VALUES (?, ?, ?, ?, 'ACTIVA')`;
+
+            db.query(sqlRenta, [habitacion_id, cliente_id, precio_cobrado, usuario_recepcion_id], (error, resultRenta) => {
+                if (error) {
+                    return res.status(500).json({ success: false, message: 'Error al registrar la reservación' });
+                }
+
+                const sqlActualizarHabitacion = "UPDATE habitaciones SET estado = 'RESERVADA' WHERE id = ?";
+                db.query(sqlActualizarHabitacion, [habitacion_id], (error) => {
+                    if (error) {
+                        return res.status(500).json({ success: false, message: 'Error al actualizar habitación' });
+                    }
+
+                    res.status(201).json({
+                        success: true,
+                        message: 'Reservación realizada con éxito',
+                        renta_id: resultRenta.insertId
+                    });
+                });
+            });
+        });
+    });
+});
+
 app.get('/api/rentas/activas', (req, res) => {
     const sql = `SELECT r.id AS renta_id, r.fecha_checkin, r.precio_cobrado,
-                h.id AS habitacion_id, h.num_habitacion, h.tipo,
-                c.id AS cliente_id, c.nombre_completo, c.celular
-                FROM rentas r
-                JOIN habitaciones h ON r.habitacion_id = h.id
-                JOIN clientes c ON r.cliente_id = c.id
-                WHERE r.estado_renta = 'ACTIVA'
+               h.id AS habitacion_id, h.num_habitacion, h.tipo,
+               c.id AS cliente_id, c.nombre_completo, c.celular, c.direccion
+        FROM rentas r
+        JOIN habitaciones h ON r.habitacion_id = h.id
+        JOIN clientes c ON r.cliente_id = c.id
+        WHERE h.estado = 'RESERVADA' AND r.estado_renta = 'ACTIVA'
     `;
 
     db.query(sql, (error, resultados) => {
@@ -235,6 +289,51 @@ app.get('/api/rentas/activas', (req, res) => {
             success: true,
             total: resultados.length,
             rentas_activas: resultados
+        });
+    });
+});
+
+app.put('/api/reservas/cancelar/:id', (req, res) => {
+    const rentaId = req.params.id;
+    const { motivo_cancelacion, usuario_cancela_id } = req.body;
+
+    if (!motivo_cancelacion || motivo_cancelacion.trim() === '') {
+        return res.status(400).json({
+            success: false,
+            message: 'El motivo de cancelación es obligatorio'
+        });
+    }
+
+    const sqlBuscar = "SELECT habitacion_id FROM rentas WHERE id = ? AND estado_renta = 'ACTIVA'";
+    db.query(sqlBuscar, [rentaId], (err, resultados) => {
+        if (err || resultados.length === 0) {
+            return res.status(404).json({ success: false, message: 'Reservación no encontrada' });
+        }
+
+        const habitacionId = resultados[0].habitacion_id;
+
+        const sqlActualizarRenta = `
+            UPDATE rentas 
+            SET estado_renta = 'CANCELADA', motivo_cancelacion = ?, usuario_cancela_id = ? 
+            WHERE id = ?
+        `;
+
+        db.query(sqlActualizarRenta, [motivo_cancelacion, usuario_cancela_id || null, rentaId], (err) => {
+            if (err) {
+                return res.status(500).json({ success: false, message: 'Error al cancelar la renta' });
+            }
+
+            const sqlLiberarHabitacion = "UPDATE habitaciones SET estado = 'LIBRE_LIMPIA' WHERE id = ?";
+            db.query(sqlLiberarHabitacion, [habitacionId], (err) => {
+                if (err) {
+                    return res.status(500).json({ success: false, message: 'Error al liberar la habitación' });
+                }
+
+                res.status(200).json({
+                    success: true,
+                    message: 'Reservación cancelada con éxito'
+                });
+            });
         });
     });
 });

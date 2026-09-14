@@ -233,7 +233,7 @@ export default function SupervisorDashboard() {
                 <div className="px-5 mb-10">
                     <div className="flex justify-between items-center mb-5">
                         <h3 className="text-xl font-bold text-gray-800">Listado de Habitaciones</h3>
-                        <button onClick={() => setIsOpen(true)} className='flex gap-2 px-4 py-2.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-300 font-medium text-sm transition cursor-pointer'title='Agregar Habitacion'>
+                        <button onClick={() => setIsOpen(true)} className='flex gap-2 px-4 py-2.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-300 font-medium text-sm transition cursor-pointer' title='Agregar Habitacion'>
                             <Plus className="w-5 h-5" />
                             <span>Agregar Habitacion</span>
                         </button>
@@ -292,10 +292,11 @@ export default function SupervisorDashboard() {
                             habitacionesFiltradas.map((h) => (
                                 <div
                                     key={h.id}
-                                    className={`bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between transition-all duration-300 transform ${idBorrando === h.id ? 'opacity-0 scale-90 pointer-events-none' : 'opacity-100 scale-100'
+                                    className={`bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-between transition-all duration-300 transform ${idBorrando === h.id ? 'opacity-0 scale-90 pointer-events-none' : 'opacity-100 scale-100'
                                         }`}
                                 >
                                     <div>
+                                        {/* Cabecera de la tarjeta: Número y Selector de Estado */}
                                         <div className="flex justify-between items-center mb-3">
                                             <span className="font-bold text-lg text-gray-800">Hab. {h.num_habitacion}</span>
 
@@ -303,9 +304,9 @@ export default function SupervisorDashboard() {
                                                 value={h.estado}
                                                 onChange={(e) => cambiarEstadoHabitacion(h.id, e.target.value)}
                                                 className={`px-3 py-1 text-xs font-semibold rounded-lg border outline-none cursor-pointer transition ${h.estado === 'LIBRE_LIMPIA' ? 'bg-green-100 text-green-700 border-green-300' :
-                                                    h.estado === 'LIBRE_SUCIA' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
-                                                        h.estado === 'OCUPADA' ? 'bg-red-100 text-red-700 border-red-300' :
-                                                            'bg-blue-100 text-blue-700 border-blue-300'
+                                                        h.estado === 'LIBRE_SUCIA' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
+                                                            h.estado === 'OCUPADA' ? 'bg-red-100 text-red-700 border-red-300' :
+                                                                'bg-blue-100 text-blue-700 border-blue-300'
                                                     }`}
                                             >
                                                 <option value="LIBRE_LIMPIA">Limpia</option>
@@ -314,24 +315,34 @@ export default function SupervisorDashboard() {
                                                 <option value="RESERVADA">Reservada</option>
                                             </select>
                                         </div>
+
                                         <p className="text-sm text-gray-600">Tipo: <span className="font-medium text-gray-800">{h.tipo}</span></p>
                                         <p className="text-sm text-gray-600">Precio: <span className="font-medium text-gray-800">${h.precio_base}</span></p>
+
+                                        {h.cliente_nombre && (
+                                            <div className="mt-2.5 pt-2.5 border-t border-gray-100">
+                                                <p className="text-xs text-blue-600 font-semibold">
+                                                    Cliente/Huésped: <span className="font-normal text-gray-700">{h.cliente_nombre}</span>
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
 
+                                    {/* Botón de eliminar con su popover de confirmación */}
                                     <div className="mt-4 pt-2 border-t border-gray-100">
                                         {isCofirmar === h.id ? (
-                                            <div className="bg-red-50 p-2.5 rounded-lg border border-red-200 flex flex-col gap-2">
+                                            <div className="bg-red-50 p-2.5 rounded-xl border border-red-200 flex flex-col gap-2">
                                                 <p className="text-xs text-red-700 font-medium text-center">¿Eliminar esta habitación?</p>
                                                 <div className="flex justify-center gap-2">
                                                     <button
                                                         onClick={() => setIsConfirmar(null)}
-                                                        className="px-3 py-1 bg-white border border-gray-300 text-gray-700 text-xs font-medium rounded hover:bg-gray-50 cursor-pointer transition"
+                                                        className="px-3 py-1 bg-white border border-gray-300 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-50 cursor-pointer transition"
                                                     >
                                                         No
                                                     </button>
                                                     <button
                                                         onClick={() => eliminarHabitacion(h.id)}
-                                                        className="px-3 py-1 bg-red-600 text-white text-xs font-medium rounded hover:bg-red-700 cursor-pointer transition"
+                                                        className="px-3 py-1 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 cursor-pointer transition"
                                                     >
                                                         Sí, eliminar
                                                     </button>
@@ -352,7 +363,7 @@ export default function SupervisorDashboard() {
                                 </div>
                             ))
                         ) : (
-                            <div className="col-span-full py-10 text-center bg-white rounded-xl border border-gray-200">
+                            <div className="col-span-full py-10 text-center bg-white rounded-2xl border border-gray-200">
                                 <p className="text-gray-500 text-sm">No se encontraron habitaciones con los filtros seleccionados.</p>
                             </div>
                         )}

@@ -1,55 +1,115 @@
-import {
-    LogOut
-} from 'lucide-react'
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { LayoutDashboard, BarChart3, Ban, Users, LogOut, Menu, CalendarPlus } from 'lucide-react';
 
 export default function Sidebar({ isCollapsed, setIsCollapsed }) {
-    const navigate = useNavigate();
+    const [rolUsuario, setRolUsuario] = useState('');
+    const location = useLocation();
+
+    useEffect(() => {
+        const usuarioGuardado = localStorage.getItem('usuario');
+        if (usuarioGuardado) {
+            const parsedUser = JSON.parse(usuarioGuardado);
+            setRolUsuario(parsedUser.rol);
+        }
+    }, []);
 
     const handleLogout = () => {
-        localStorage.clear();
-        navigate('/');
+        localStorage.removeItem('usuario');
+        window.location.href = '/';
+    };
+
+    const obtenerRutaDashboard = () => {
+        switch (rolUsuario) {
+            case 'RECEPCIONISTA': return '/dashboard/recepcionista';
+            case 'RECAMARISTA': return '/dashboard/recamarista';
+            case 'SUPERVISOR': return '/dashboard/supervisor';
+            case 'ADMINISTRADOR': return '/dashboard/administrador';
+            default: return '/dashboard';
+        }
+    };
+
+    const obtenerRutaReportes = () => {
+        switch (rolUsuario) {
+            case 'RECEPCIONISTA': return '/dashboard/recepcionista/reportes';
+            case 'RECAMARISTA': return '/dashboard/recamarista/reportes';
+            case 'SUPERVISOR': return '/dashboard/supervisor/reportes';
+            case 'ADMINISTRADOR': return '/dashboard/administrador/reportes';
+            default: return '/dashboard/reportes';
+        }
     };
 
     return (
-        <aside className={`bg-white text-gray-800 flex flex-col h-screen fixed left-0 top-0 border-r border-gray-300 transition-all duration-300 z-10 ${isCollapsed ? 'w-20' : 'w-64'}`}>
+        <aside className={`fixed top-0 left-0 h-screen bg-white border-r border-gray-200 transition-all duration-300 z-50 flex flex-col justify-between ${isCollapsed ? 'w-20' : 'w-64'}`}>
+            <div>
+                <div className="flex items-center justify-between h-16 px-4 border-b border-gray-100">
+                    {!isCollapsed && <span className="font-bold text-gray-800 text-lg">Hotel Palmeyras</span>}
+                    <button
+                        onClick={() => setIsCollapsed(!isCollapsed)}
+                        className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 transition cursor-pointer mx-auto"
+                    >
+                        <Menu className='w-5 h-5' />
+                    </button>
+                </div>
 
-            <div className="h-16 flex items-center justify-between px-6 border-b border-gray-200">
-                {!isCollapsed && (
-                    <span className="text-lg font-bold tracking-wide text-red-500">Hotel Palmeyras</span>
-                )}
+                <nav className="p-4 space-y-2">
+                    <Link
+                        to={obtenerRutaDashboard()}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition font-medium text-sm ${location.pathname === obtenerRutaDashboard() ? 'bg-red-50 text-red-600' : 'text-gray-600 hover:bg-gray-100'}`}
+                    >
+                        <LayoutDashboard className="w-5 h-5 shrink-0" />
+                        {!isCollapsed && <span>Dashboard</span>}
+                    </Link>
 
-                <button
-                    onClick={() => setIsCollapsed(!isCollapsed)}
-                    className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 transition"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
-                        <line x1="4" x2="20" y1="12" y2="12" />
-                        <line x1="4" x2="20" y1="6" y2="6" />
-                        <line x1="4" x2="20" y1="18" y2="18" />
-                    </svg>
-                </button>
+                    <Link
+                        to={obtenerRutaReportes()}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition font-medium text-sm ${location.pathname === obtenerRutaReportes() ? 'bg-red-50 text-red-600' : 'text-gray-600 hover:bg-gray-100'}`}
+                    >
+                        <BarChart3 className="w-5 h-5 shrink-0" />
+                        {!isCollapsed && <span>Reportes</span>}
+                    </Link>
+
+                    {(rolUsuario === 'SUPERVISOR' || rolUsuario === 'RECEPCIONISTA') && (
+                        <Link 
+                            to="/dashboard/reservaciones/nueva" 
+                            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition font-medium text-sm ${location.pathname === '/dashboard/reservaciones/nueva' ? 'bg-red-50 text-red-600' : 'text-gray-600 hover:bg-gray-100'}`}
+                        >
+                            <CalendarPlus className="w-5 h-5 shrink-0" />
+                            {!isCollapsed && <span>Nueva Reservación</span>}
+                        </Link>
+                    )}
+
+                    {rolUsuario === 'SUPERVISOR' && (
+                        <Link
+                            to="/dashboard/supervisor/cancelar-renta"
+                            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition font-medium text-sm ${location.pathname === '/dashboard/supervisor/cancelar-renta' ? 'bg-red-50 text-red-600' : 'text-gray-600 hover:bg-gray-100'}`}
+                        >
+                            <Ban className="w-5 h-5 shrink-0" />
+                            {!isCollapsed && <span>Cancelar Renta</span>}
+                        </Link>
+                    )}
+
+                    {rolUsuario === 'ADMINISTRADOR' && (
+                        <Link
+                            to="/dashboard/administrador/usuarios"
+                            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition font-medium text-sm ${location.pathname === '/dashboard/administrador/usuarios' ? 'bg-red-50 text-red-600' : 'text-gray-600 hover:bg-gray-100'}`}
+                        >
+                            <Users className="w-5 h-5 shrink-0" />
+                            {!isCollapsed && <span>Gestión de Usuarios</span>}
+                        </Link>
+                    )}
+                </nav>
             </div>
 
-            <nav className="flex-1 px-4 py-6 space-y-2">
-                <a href="#" className="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-gray-100 text-gray-800 font-medium text-sm transition">
-                    <span>🏨</span>
-                    {!isCollapsed && <span>Tablero de Habitaciones</span>}
-                </a>
-
-                <a href="#" className="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-gray-100 text-gray-800 font-medium text-sm transition">
-                    <span>👥</span>
-                    {!isCollapsed && <span>Gestión de Usuarios</span>}
-                </a>
-            </nav>
-
-            <button 
-            onClick={handleLogout}
-            className='w-full flex items-center gap-3 px-4 py-2.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 font-medium text-sm transition cursor-pointer'
-            title='Cerrar Sesion'>
-                <LogOut /> 
-                {!isCollapsed && <span>Cerrar Sesion</span>}
-            </button>
+            <div className="p-4 border-t border-gray-100">
+                <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-red-600 hover:bg-red-50 transition font-medium text-sm cursor-pointer"
+                >
+                    <LogOut className="w-5 h-5 shrink-0" />
+                    {!isCollapsed && <span>Cerrar Sesión</span>}
+                </button>
+            </div>
         </aside>
     );
 }
