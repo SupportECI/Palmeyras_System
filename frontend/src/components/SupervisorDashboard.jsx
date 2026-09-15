@@ -47,37 +47,70 @@ export default function SupervisorDashboard() {
 
     const [isCollapsed, setIsCollapsed] = useState(false);
 
-    useEffect(() => {
-        const obtenerHabitaciones = async () => {
-            try {
-                const respuesta = await api.get('/habitaciones');
-                setTotalHabitaciones(respuesta.data.habitaciones.length);
-                setHabitaciones(respuesta.data.habitaciones);
-                setLibreLimpia(respuesta.data.habitaciones.filter(h => h.estado === 'LIBRE_LIMPIA').length);
-                setLibreSucia(respuesta.data.habitaciones.filter(h => h.estado === 'LIBRE_SUCIA').length);
-                setOcupada(respuesta.data.habitaciones.filter(h => h.estado === 'OCUPADA').length);
-                setReservada(respuesta.data.habitaciones.filter(h => h.estado === 'RESERVADA').length);
-            } catch {
-                console.error('Error al obtener las habitaciones');
-            }
-        };
+    // Función principal para obtener habitaciones y evaluar cambios automáticos de horario
+    const obtenerHabitaciones = async () => {
+        try {
+            const respuesta = await api.get('/habitaciones');
+            let lista = respuesta.data.habitaciones;
 
+            // Obtenemos fecha y hora exacta del equipo
+            const ahora = new Date();
+            const fechaHoy = ahora.toISOString().split('T')[0];
+            const horaActual = ahora.toTimeString().substring(0, 5); // formato HH:MM
+
+            let huboCambios = false;
+
+            for (let h of lista) {
+                // Si la habitación está libre y tiene una reserva asignada para hoy a esta hora o antes
+                if (
+                    (h.estado === 'LIBRE_LIMPIA' || h.estado === 'LIBRE_SUCIA') &&
+                    h.hora_reservacion &&
+                    h.fecha_reservacion
+                ) {
+                    const fechaReservaStr = h.fecha_reservacion.split('T')[0];
+                    const horaReservaStr = h.hora_reservacion.substring(0, 5);
+
+                    if (fechaReservaStr === fechaHoy && horaActual >= horaReservaStr) {
+                        // Cambiamos automáticamente a 'RESERVADA' en el backend
+                        await api.put(`/habitaciones/${h.id}/estado`, {
+                            estado: 'RESERVADA',
+                            rol_usuario: 'SUPERVISOR'
+                        });
+                        huboCambios = true;
+                    }
+                }
+            }
+
+            if (huboCambios) {
+                const resActualizada = await api.get('/habitaciones');
+                lista = resActualizada.data.habitaciones;
+            }
+
+            setTotalHabitaciones(lista.length);
+            setHabitaciones(lista);
+            setLibreLimpia(lista.filter(h => h.estado === 'LIBRE_LIMPIA').length);
+            setLibreSucia(lista.filter(h => h.estado === 'LIBRE_SUCIA').length);
+            setOcupada(lista.filter(h => h.estado === 'OCUPADA').length);
+            setReservada(lista.filter(h => h.estado === 'RESERVADA').length);
+        } catch (error) {
+            console.error('Error al obtener las habitaciones', error);
+        }
+    };
+
+    useEffect(() => {
         obtenerHabitaciones();
+
+        const intervalo = setInterval(() => {
+            obtenerHabitaciones();
+        }, 30000);
+
+        return () => clearInterval(intervalo);
     }, []);
 
     const cambiarEstadoHabitacion = async (idHabitacion, nuevoEstado) => {
         try {
             await api.put(`/habitaciones/${idHabitacion}/estado`, { estado: nuevoEstado });
-
-            const respuesta = await api.get('/habitaciones');
-            const lista = respuesta.data.habitaciones;
-            setHabitaciones(lista);
-            setTotalHabitaciones(lista.length);
-            setLibreLimpia(lista.filter(h => h.estado === 'LIBRE_LIMPIA').length);
-            setLibreSucia(lista.filter(h => h.estado === 'LIBRE_SUCIA').length);
-            setOcupada(lista.filter(h => h.estado === 'OCUPADA').length);
-            setReservada(lista.filter(h => h.estado === 'RESERVADA').length);
-
+            obtenerHabitaciones();
         } catch (error) {
             console.error('Error al actualizar el estado:', error);
             alert('No se pudo actualizar el estado de la habitación');
@@ -99,15 +132,7 @@ export default function SupervisorDashboard() {
             setTipo('');
             setPrecioBase('');
             setEstadoHabitacion('LIBRE_LIMPIA');
-
-            const respuesta = await api.get('/habitaciones');
-            const lista = respuesta.data.habitaciones;
-            setHabitaciones(lista);
-            setTotalHabitaciones(lista.length);
-            setLibreLimpia(lista.filter(h => h.estado === 'LIBRE_LIMPIA').length);
-            setLibreSucia(lista.filter(h => h.estado === 'LIBRE_SUCIA').length);
-            setOcupada(lista.filter(h => h.estado === 'OCUPADA').length);
-            setReservada(lista.filter(h => h.estado === 'RESERVADA').length);
+            obtenerHabitaciones();
 
         } catch (error) {
             console.error('Error al registrar la habitación', error);
@@ -116,10 +141,8 @@ export default function SupervisorDashboard() {
     };
 
     const eliminarHabitacion = async (idHabitacion) => {
-        // Activamos el estado de animación para esta tarjeta
         setIdBorrando(idHabitacion);
 
-        // Esperamos 300ms a que termine la animación visual antes de hacer la petición
         setTimeout(async () => {
             try {
                 const response = await fetch(`http://localhost:4000/api/habitaciones/${idHabitacion}`, {
@@ -131,26 +154,17 @@ export default function SupervisorDashboard() {
 
                 setIsConfirmar(null);
                 setIdBorrando(null);
-
-                // Recargamos las habitaciones y contadores
-                const respuesta = await api.get('/habitaciones');
-                const lista = respuesta.data.habitaciones;
-                setHabitaciones(lista);
-                setTotalHabitaciones(lista.length);
-                setLibreLimpia(lista.filter(h => h.estado === 'LIBRE_LIMPIA').length);
-                setLibreSucia(lista.filter(h => h.estado === 'LIBRE_SUCIA').length);
-                setOcupada(lista.filter(h => h.estado === 'OCUPADA').length);
-                setReservada(lista.filter(h => h.estado === 'RESERVADA').length);
+                obtenerHabitaciones();
 
             } catch (error) {
                 console.error('Error detallado:', error);
-                setIdBorrando(null); // Si falla, regresamos la tarjeta a la normalidad
+                setIdBorrando(null);
                 alert('No se pudo eliminar la habitación');
             }
-        }, 300); // Tiempo de la animación en milisegundos
+        }, 300);
     };
 
-    // Filtramos las habitaciones según el número buscado y el botón de estado seleccionado
+    // Filtramos las habitaciones según búsqueda y estado
     const habitacionesFiltradas = habitaciones.filter((h) => {
         const coincideBusqueda = h.num_habitacion.toString().toLowerCase().includes(busqueda.toLowerCase());
 
@@ -165,16 +179,13 @@ export default function SupervisorDashboard() {
 
     return (
         <div className="min-h-screen bg-gray-100 flex">
-
             <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
 
             <div className={`flex-1 ${isCollapsed ? 'ml-20' : 'ml-64'} flex flex-col min-w-0 transition-all duration-300`}>
-
                 <header className="bg-white text-black flex items-center justify-between h-16 px-6 border-b border-gray-200">
                     <div>
                         <h1 className="text-lg font-semibold text-gray-800">Panel de Supervisor</h1>
                     </div>
-
                     <div className="flex items-center gap-4 ml-auto">
                         <span className="text-md text-gray-800">
                             {nombreUsuario ? `Bienvenido, ${nombreUsuario}` : "Cargando..."}
@@ -233,15 +244,13 @@ export default function SupervisorDashboard() {
                 <div className="px-5 mb-10">
                     <div className="flex justify-between items-center mb-5">
                         <h3 className="text-xl font-bold text-gray-800">Listado de Habitaciones</h3>
-                        <button onClick={() => setIsOpen(true)} className='flex gap-2 px-4 py-2.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-300 font-medium text-sm transition cursor-pointer' title='Agregar Habitacion'>
+                        <button onClick={() => setIsOpen(true)} className='flex gap-2 px-4 py-2.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-300 font-medium text-sm transition cursor-pointer'>
                             <Plus className="w-5 h-5" />
                             <span>Agregar Habitacion</span>
                         </button>
                     </div>
 
-                    {/* Barra de búsqueda y Botones de Filtro Rápido */}
                     <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-6 flex flex-col md:flex-row gap-4 justify-between items-center">
-                        {/* Input de Búsqueda */}
                         <div className="w-full md:w-72">
                             <input
                                 type="text"
@@ -252,38 +261,12 @@ export default function SupervisorDashboard() {
                             />
                         </div>
 
-                        {/* Botones de Categorías */}
                         <div className="flex flex-wrap gap-2 w-full md:w-auto">
-                            <button
-                                onClick={() => setFiltroEstado('TODOS')}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'TODOS' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                            >
-                                Todas ({habitaciones.length})
-                            </button>
-                            <button
-                                onClick={() => setFiltroEstado('DISPONIBLES')}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'DISPONIBLES' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-700 hover:bg-green-100'}`}
-                            >
-                                Disponibles ({libreLimpia})
-                            </button>
-                            <button
-                                onClick={() => setFiltroEstado('SUCIAS')}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'SUCIAS' ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700 hover:bg-purple-100'}`}
-                            >
-                                Por Limpiar ({libreSucia})
-                            </button>
-                            <button
-                                onClick={() => setFiltroEstado('OCUPADAS')}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'OCUPADAS' ? 'bg-orange-600 text-white' : 'bg-orange-50 text-orange-700 hover:bg-orange-100'}`}
-                            >
-                                Ocupadas ({ocupada})
-                            </button>
-                            <button
-                                onClick={() => setFiltroEstado('RESERVADAS')}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'RESERVADAS' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-700 hover:bg-red-100'}`}
-                            >
-                                Reservadas ({reservada})
-                            </button>
+                            <button onClick={() => setFiltroEstado('TODOS')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'TODOS' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Todas ({habitaciones.length})</button>
+                            <button onClick={() => setFiltroEstado('DISPONIBLES')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'DISPONIBLES' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-700 hover:bg-green-100'}`}>Disponibles ({libreLimpia})</button>
+                            <button onClick={() => setFiltroEstado('SUCIAS')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'SUCIAS' ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700 hover:bg-purple-100'}`}>Por Limpiar ({libreSucia})</button>
+                            <button onClick={() => setFiltroEstado('OCUPADAS')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'OCUPADAS' ? 'bg-orange-600 text-white' : 'bg-orange-50 text-orange-700 hover:bg-orange-100'}`}>Ocupadas ({ocupada})</button>
+                            <button onClick={() => setFiltroEstado('RESERVADAS')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'RESERVADAS' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-700 hover:bg-red-100'}`}>Reservadas ({reservada})</button>
                         </div>
                     </div>
 
@@ -292,11 +275,9 @@ export default function SupervisorDashboard() {
                             habitacionesFiltradas.map((h) => (
                                 <div
                                     key={h.id}
-                                    className={`bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-between transition-all duration-300 transform ${idBorrando === h.id ? 'opacity-0 scale-90 pointer-events-none' : 'opacity-100 scale-100'
-                                        }`}
+                                    className={`bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-between transition-all duration-300 transform ${idBorrando === h.id ? 'opacity-0 scale-90 pointer-events-none' : 'opacity-100 scale-100'}`}
                                 >
                                     <div>
-                                        {/* Cabecera de la tarjeta: Número y Selector de Estado */}
                                         <div className="flex justify-between items-center mb-3">
                                             <span className="font-bold text-lg text-gray-800">Hab. {h.num_habitacion}</span>
 
@@ -319,42 +300,43 @@ export default function SupervisorDashboard() {
                                         <p className="text-sm text-gray-600">Tipo: <span className="font-medium text-gray-800">{h.tipo}</span></p>
                                         <p className="text-sm text-gray-600">Precio: <span className="font-medium text-gray-800">${h.precio_base}</span></p>
 
-                                        {h.cliente_nombre && (
+                                        {h.estado === 'LIBRE_LIMPIA' && h.hora_reservacion && (
+                                            <div className="mt-2.5 pt-2.5 border-t border-gray-100 bg-amber-50/50 p-2 rounded-xl border border-amber-200">
+                                                <p className="text-xs text-amber-800 font-bold flex items-center gap-1">
+                                                    📅 Reservada para el <span className="text-amber-900">{h.fecha_reservacion?.split('T')[0]}</span> a las <span className="text-amber-900">{h.hora_reservacion}</span>
+                                                </p>
+                                                <p className="text-xs text-gray-600 mt-0.5">
+                                                    Cliente: <span className="font-semibold">{h.cliente_nombre}</span>
+                                                </p>
+                                            </div>
+                                        )}
+
+                                        {(h.estado === 'OCUPADA' || h.estado === 'RESERVADA') && h.cliente_nombre && (
                                             <div className="mt-2.5 pt-2.5 border-t border-gray-100">
                                                 <p className="text-xs text-blue-600 font-semibold">
-                                                    Cliente/Huésped: <span className="font-normal text-gray-700">{h.cliente_nombre}</span>
+                                                    Cliente: <span className="font-normal text-gray-700">{h.cliente_nombre}</span>
                                                 </p>
+                                                {h.hora_reservacion && (
+                                                    <p className="text-xs text-gray-500 mt-0.5">
+                                                        Hora de reserva: <span className="font-medium text-gray-700">{h.hora_reservacion}</span>
+                                                    </p>
+                                                )}
                                             </div>
                                         )}
                                     </div>
 
-                                    {/* Botón de eliminar con su popover de confirmación */}
                                     <div className="mt-4 pt-2 border-t border-gray-100">
                                         {isCofirmar === h.id ? (
                                             <div className="bg-red-50 p-2.5 rounded-xl border border-red-200 flex flex-col gap-2">
                                                 <p className="text-xs text-red-700 font-medium text-center">¿Eliminar esta habitación?</p>
                                                 <div className="flex justify-center gap-2">
-                                                    <button
-                                                        onClick={() => setIsConfirmar(null)}
-                                                        className="px-3 py-1 bg-white border border-gray-300 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-50 cursor-pointer transition"
-                                                    >
-                                                        No
-                                                    </button>
-                                                    <button
-                                                        onClick={() => eliminarHabitacion(h.id)}
-                                                        className="px-3 py-1 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 cursor-pointer transition"
-                                                    >
-                                                        Sí, eliminar
-                                                    </button>
+                                                    <button onClick={() => setIsConfirmar(null)} className="px-3 py-1 bg-white border border-gray-300 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-50 cursor-pointer transition">No</button>
+                                                    <button onClick={() => eliminarHabitacion(h.id)} className="px-3 py-1 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 cursor-pointer transition">Sí, eliminar</button>
                                                 </div>
                                             </div>
                                         ) : (
                                             <div className="flex justify-end">
-                                                <button
-                                                    onClick={() => setIsConfirmar(h.id)}
-                                                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
-                                                    title="Eliminar habitación"
-                                                >
+                                                <button onClick={() => setIsConfirmar(h.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer" title="Eliminar habitación">
                                                     <Trash className="w-4 h-4" />
                                                 </button>
                                             </div>

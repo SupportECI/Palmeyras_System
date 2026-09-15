@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import Sidebar from './Sidebar';
-import { BedDouble, User, Phone, MapPin, DollarSign } from 'lucide-react';
 
 export default function NuevaReservacion() {
     const navigate = useNavigate();
@@ -16,8 +15,8 @@ export default function NuevaReservacion() {
     const [precioCobrado, setPrecioCobrado] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-
-    const [toast, setToast] = useState({ show: false, message: '' });
+    const [fechaReservacion, setFechaReservacion] = useState('');
+    const [horaReservacion, setHoraReservacion] = useState('');
 
     useEffect(() => {
         const obtenerHabitacionesLibres = async () => {
@@ -58,15 +57,15 @@ export default function NuevaReservacion() {
                 direccion: direccion,
                 celular: celular,
                 precio_cobrado: precioCobrado,
+                fecha_reservacion: fechaReservacion,
+                hora_reservacion: horaReservacion,
                 usuario_recepcion_id: usuarioId
             });
 
-            setToast({ show: true, message: 'Reservacion hecha con exito' });
+            navigate('/dashboard/reservaciones/lista');
 
-            navigate('/dashboard/supervisor');
         } catch (err) {
             setError(err.response?.data?.message || 'Error al registrar la reservación');
-        } finally {
             setLoading(false);
         }
     };
@@ -135,6 +134,29 @@ export default function NuevaReservacion() {
                             </div>
                         </div>
 
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 mb-1">Fecha de Reservación</label>
+                                <input
+                                    type="date"
+                                    value={fechaReservacion}
+                                    onChange={(e) => setFechaReservacion(e.target.value)}
+                                    className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500 bg-white"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 mb-1">Horario de Reservación</label>
+                                <input
+                                    type="time"
+                                    value={horaReservacion}
+                                    onChange={(e) => setHoraReservacion(e.target.value)}
+                                    className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500 bg-white"
+                                    required
+                                />
+                            </div>
+                        </div>
+
                         <div>
                             <label className="block text-xs font-semibold text-gray-700 mb-1">Dirección</label>
                             <textarea
@@ -157,13 +179,6 @@ export default function NuevaReservacion() {
                             {loading ? 'Guardando...' : 'Confirmar Reservación'}
                         </button>
                     </form>
-
-                    {toast.show && (
-                        <div className="fixed bottom-6 right-6 z-50 bg-gray-900 text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-3 transition-all transform animate-bounce">
-                            <div className="w-2 h-2 bg-green-500 rounded-full animate-ping"></div>
-                            <p className="text-xs font-medium">{toast.message}</p>
-                        </div>
-                    )}
                 </div>
             </div>
         </div>
