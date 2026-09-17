@@ -9,12 +9,14 @@ import RecepcionDashboard from './components/RecepcionDashborad';
 import RecamaristaDashboard from './components/RecamaristaDashboard';
 import AdminDashboard from './components/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
+import GestionUsuarios from './components/GestionUsuarios';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Login />} />
+
         <Route path='/dashboard/supervisor'
           element={<ProtectedRoute rolPermitido='SUPERVISOR'>
             <SupervisorDashboard />
@@ -46,10 +48,16 @@ function App() {
             <RecamaristaDashboard />
           </ProtectedRoute>} />
 
-        <Route path='/dashboard/admin' element={
+        <Route path='/dashboard/administrador' element={
           <ProtectedRoute rolPermitido='ADMINISTRADOR'>
             <AdminDashboard />
           </ProtectedRoute>} />
+        
+        <Route path='/dashboard/administrador/usuarios' element={
+          <ProtectedRoute>
+            <GestionUsuarios />
+          </ProtectedRoute>
+        }/>
       </Routes>
     </BrowserRouter>
   )

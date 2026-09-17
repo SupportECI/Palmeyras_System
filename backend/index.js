@@ -501,6 +501,44 @@ app.put('/api/habitaciones/:id/estado', (req, res) => {
     });
 });
 
+app.get('/api/usuarios', (req, res) => {
+    const sql = "SELECT id, nombre, email, rol FROM usuarios";
+    db.query(sql, (err, results) => {
+        if (err) {
+            console.error("Error en SQL /api/usuarios:", err);
+            return res.status(500).json({ success: false, message: 'Error al obtener usuarios' });
+        }
+        res.status(200).json({ success: true, usuarios: results });
+    });
+});
+
+app.put('/api/usuarios/:id', (req, res) => {
+    const userId = req.params.id;
+    const { nombre, email, rol } = req.body;
+
+    const sql = "UPDATE usuarios SET nombre = ?, email = ?, rol = ? WHERE id = ?";
+    db.query(sql, [nombre, email, rol, userId], (err) => {
+        if (err) {
+            console.error("Error al actualizar usuario:", err);
+            return res.status(500).json({ success: false, message: 'Error al actualizar el usuario' });
+        }
+        res.status(200).json({ success: true, message: 'Usuario actualizado correctamente' });
+    });
+});
+
+app.delete('/api/usuarios/:id', (req, res) => {
+    const userId = req.params.id;
+
+    const sql = "DELETE FROM usuarios WHERE id = ?";
+    db.query(sql, [userId], (err) => {
+        if (err) {
+            console.error("Error al eliminar usuario:", err);
+            return res.status(500).json({ success: false, message: 'Error al eliminar el usuario' });
+        }
+        res.status(200).json({ success: true, message: 'Usuario eliminado correctamente' });
+    });
+});
+
 app.listen(PORT, () => {
     console.log(`Servidor corriendo en el puerto ${PORT}`);
 });
