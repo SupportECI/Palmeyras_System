@@ -81,14 +81,14 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
 
                     {(rolUsuario === 'SUPERVISOR' || rolUsuario === 'RECEPCIONISTA' || rolUsuario === 'ADMINISTRADOR') && (
                         <Link
-                        to="/dashboard/reservaciones/lista"
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition font-medium text-sm ${location.pathname === '/dashboard/reservaciones/lista' ? 'bg-red-50 text-red-600' : 'text-gray-600 hover:bg-gray-100'}`}
-                    >
-                        <BedDouble className="w-5 h-5 shrink-0" />
-                        {!isCollapsed && <span>Ver Reservaciones</span>}
-                    </Link>
+                            to="/dashboard/reservaciones/lista"
+                            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition font-medium text-sm ${location.pathname === '/dashboard/reservaciones/lista' ? 'bg-red-50 text-red-600' : 'text-gray-600 hover:bg-gray-100'}`}
+                        >
+                            <BedDouble className="w-5 h-5 shrink-0" />
+                            {!isCollapsed && <span>Ver Reservaciones</span>}
+                        </Link>
                     )}
-                    
+
                     {rolUsuario === 'SUPERVISOR' && (
                         <Link
                             to="/dashboard/supervisor/cancelar-renta"
@@ -108,6 +108,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
                             {!isCollapsed && <span>Gestión de Usuarios</span>}
                         </Link>
                     )}
+
                 </nav>
             </div>
 
