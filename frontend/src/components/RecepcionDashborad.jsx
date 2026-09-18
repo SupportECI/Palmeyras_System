@@ -1,12 +1,54 @@
 import { useEffect, useState } from "react";
 import api from "../services/api";
 import Sidebar from "./Sidebar";
-import { DoorOpen, Ban, BrushCleaning, UserCheck, LogOut, Calendar, Clock } from 'lucide-react';
+import { UserCheck, LogOut, Clock } from 'lucide-react';
+
+// Componente secundario para calcular y mostrar el cronómetro de las 4 horas de renta
+function CronometroRenta({ horaInicioReal }) {
+    const [tiempoRestante, setTiempoRestante] = useState("");
+    const [expirado, setExpirado] = useState(false);
+
+    useEffect(() => {
+        if (!horaInicioReal) return;
+
+        const calcularTiempo = () => {
+            const [h, m, s] = horaInicioReal.split(':').map(Number);
+            const inicio = new Date();
+            inicio.setHours(h, m, s || 0);
+
+            // 4 horas exactas de duración
+            const fin = new Date(inicio.getTime() + 4 * 60 * 60 * 1000);
+            const ahora = new Date();
+
+            const diferencia = fin - ahora;
+
+            if (diferencia <= 0) {
+                setExpirado(true);
+                setTiempoRestante("¡TIEMPO TERMINADO!");
+            } else {
+                const horas = Math.floor((diferencia / (1000 * 60 * 60)) % 24);
+                const minutos = Math.floor((diferencia / 1000 / 60) % 60);
+                const segundos = Math.floor((diferencia / 1000) % 60);
+                setTiempoRestante(`${horas}h ${minutos}m ${segundos}s`);
+            }
+        };
+
+        calcularTiempo();
+        const intervalo = setInterval(calcularTiempo, 1000);
+        return () => clearInterval(intervalo);
+    }, [horaInicioReal]);
+
+    return (
+        <div className={`mt-2 p-2 rounded-xl text-xs font-bold flex items-center justify-between ${expirado ? 'bg-red-100 text-red-700 border border-red-300 animate-pulse' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
+            <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> Tiempo:</span>
+            <span>{tiempoRestante}</span>
+        </div>
+    );
+}
 
 export default function RecepcionDashboard() {
     const [nombreUsuario, setNombreUsuario] = useState('');
     const [habitaciones, setHabitaciones] = useState([]);
-    const [reservaciones, setReservaciones] = useState([]);
     const [isCollapsed, setIsCollapsed] = useState(false);
 
     // Estado para el modal de Check-in
@@ -24,29 +66,28 @@ export default function RecepcionDashboard() {
             setNombreUsuario(datos.nombre || datos.correo);
         }
         cargarDatosRecepcion();
+
+        // Actualizar datos cada minuto para reflejar el bloqueo de las 2 horas automáticamente
+        const interval = setInterval(cargarDatosRecepcion, 60000);
+        return () => clearInterval(interval);
     }, []);
 
     const cargarDatosRecepcion = async () => {
         try {
-            // Cargar habitaciones y reservaciones activas
             const resHab = await api.get('/habitaciones');
             setHabitaciones(resHab.data.habitaciones);
-
-            const resRes = await api.get('/reservas/todas');
-            setReservaciones(resRes.data.reservaciones);
         } catch (error) {
-            console.error('Error al cargar datos de recepción', error);
+            console.error('Error al cargar habitaciones', error);
         }
     };
 
-    // Función para realizar Check-in (Cambia a OCUPADA y registra renta/cliente)
+    // Realizar Check-in (Cambia a OCUPADA, activa la reservación y registra la hora real de entrada)
     const handleCheckinSubmit = async (e) => {
         e.preventDefault();
         try {
             const usuarioGuardado = JSON.parse(localStorage.getItem('usuario'));
             const usuarioId = usuarioGuardado ? usuarioGuardado.id : null;
 
-            // Creamos una reservación inmediata o check-in directo con fecha y hora actual
             const ahora = new Date();
             const fechaHoy = ahora.toISOString().split('T')[0];
             const horaActual = ahora.toTimeString().substring(0, 5);
@@ -62,7 +103,7 @@ export default function RecepcionDashboard() {
                 usuario_recepcion_id: usuarioId
             });
 
-            // Inmediatamente la pasamos a OCUPADA formalmente
+            // Cambiar estado formalmente a OCUPADA
             await api.put(`/habitaciones/${habitacionSeleccionada.id}/estado`, {
                 estado: 'OCUPADA',
                 rol_usuario: 'RECEPCION'
@@ -77,9 +118,9 @@ export default function RecepcionDashboard() {
         }
     };
 
-    // Función para realizar Check-out (Pasa de OCUPADA a LIBRE_SUCIA)
+    // Realizar Check-out (Pasa de OCUPADA a LIBRE_SUCIA)
     const handleCheckout = async (idHabitacion) => {
-        if (!window.confirm('¿Desea realizar el Check-out de esta habitación? Pasará a estado Sucia.')) return;
+        if (!window.confirm('¿Desea realizar el Check-out de esta habitación? El tiempo ha concluido y pasará a estado Sucia.')) return;
         try {
             await api.put(`/habitaciones/${idHabitacion}/estado`, {
                 estado: 'LIBRE_SUCIA',
@@ -102,7 +143,7 @@ export default function RecepcionDashboard() {
 
     return (
         <div className="min-h-screen bg-gray-100 flex">
-            <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+            <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} rol="recepcion" />
 
             <div className={`flex-1 ${isCollapsed ? 'ml-20' : 'ml-64'} flex flex-col min-w-0 transition-all duration-300`}>
                 <header className="bg-white text-black flex items-center justify-between h-16 px-6 border-b border-gray-200">
@@ -111,9 +152,12 @@ export default function RecepcionDashboard() {
                 </header>
 
                 <div className="p-6 flex flex-col gap-8">
-                    {/* SECCIÓN 1: ESTADO DE HABITACIONES */}
                     <div>
-                        <h3 className="text-xl font-bold text-gray-800 mb-4">Control de Habitaciones</h3>
+                        <div className="mb-4 flex justify-between items-center">
+                            <h3 className="text-xl font-bold text-gray-800">Control y Estado de Habitaciones</h3>
+                            <p className="text-xs text-gray-500">* Las habitaciones se bloquean a reservadas 2 horas antes de su hora programada.</p>
+                        </div>
+
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                             {habitaciones.map((h) => (
                                 <div key={h.id} className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-between">
@@ -130,79 +174,61 @@ export default function RecepcionDashboard() {
                                             </span>
                                         </div>
                                         <p className="text-sm text-gray-600">Tipo: <span className="font-medium text-gray-800">{h.tipo}</span></p>
-                                        <p className="text-sm text-gray-600 mb-3">Precio: <span className="font-medium text-gray-800">${h.precio_base}</span></p>
+                                        <p className="text-sm text-gray-600 mb-2">Precio: <span className="font-medium text-gray-800">${h.precio_base}</span></p>
 
-                                        {/* Información del cliente si está ocupada o reservada */}
+                                        {/* Información del cliente y horario programado */}
                                         {h.cliente_nombre && (
                                             <div className="mt-2 pt-2 border-t border-gray-100 text-xs">
                                                 <p className="text-gray-700 font-semibold">Cliente: {h.cliente_nombre}</p>
-                                                {h.hora_reservacion && <p className="text-gray-500">Horario: {h.hora_reservacion}</p>}
+                                                {h.hora_reservacion && <p className="text-gray-500">Reserva a las: {h.hora_reservacion}</p>}
                                             </div>
+                                        )}
+
+                                        {/* Cronómetro si está ocupada */}
+                                        {h.estado === 'OCUPADA' && h.hora_inicio_real && (
+                                            <CronometroRenta horaInicioReal={h.hora_inicio_real} />
                                         )}
                                     </div>
 
-                                    {/* Botones de Acción Rápida para Recepción */}
+                                    {/* Botones de Acción / Interacción según el estado */}
                                     <div className="mt-4 pt-3 border-t border-gray-100 flex justify-end gap-2">
                                         {h.estado === 'LIBRE_LIMPIA' && (
                                             <button
                                                 onClick={() => { setHabitacionSeleccionada(h); setPrecioCobrado(h.precio_base); setModalCheckinOpen(true); }}
-                                                className="px-3 py-1.5 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 transition flex items-center gap-1 cursor-pointer"
+                                                className="w-full py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 transition flex items-center justify-center gap-1 cursor-pointer shadow-sm"
                                             >
-                                                <UserCheck className="w-3.5 h-3.5" /> Check-in
+                                                <UserCheck className="w-4 h-4" /> Check-in
                                             </button>
                                         )}
+
+                                        {/* NUEVO: Permite hacer Check-in a la habitación que estaba bloqueada por reservación */}
+                                        {h.estado === 'RESERVADA' && (
+                                            <button
+                                                onClick={() => { setHabitacionSeleccionada(h); setPrecioCobrado(h.precio_base); setModalCheckinOpen(true); }}
+                                                className="w-full py-2 bg-amber-600 text-white rounded-xl text-xs font-semibold hover:bg-amber-700 transition flex items-center justify-center gap-1 cursor-pointer shadow-sm"
+                                                title="El cliente de la reservación ha llegado"
+                                            >
+                                                <UserCheck className="w-4 h-4" /> Check-in (Reservación)
+                                            </button>
+                                        )}
+
                                         {h.estado === 'OCUPADA' && (
                                             <button
                                                 onClick={() => handleCheckout(h.id)}
-                                                className="px-3 py-1.5 bg-orange-600 text-white rounded-xl text-xs font-semibold hover:bg-orange-700 transition flex items-center gap-1 cursor-pointer"
+                                                className="w-full py-2 bg-orange-600 text-white rounded-xl text-xs font-semibold hover:bg-orange-700 transition flex items-center justify-center gap-1 cursor-pointer shadow-sm"
                                             >
-                                                <LogOut className="w-3.5 h-3.5" /> Check-out
+                                                <LogOut className="w-4 h-4" /> Realizar Check-out (A Sucia)
                                             </button>
                                         )}
+
                                         {h.estado === 'LIBRE_SUCIA' && (
-                                            <span className="text-xs text-purple-600 font-medium italic">Pendiente de limpieza</span>
+                                            <span className="w-full text-center text-xs text-purple-600 font-semibold py-1">Pendiente de limpieza</span>
                                         )}
                                     </div>
                                 </div>
                             ))}
                         </div>
                     </div>
-
-                    {/* SECCIÓN 2: LISTA DE RESERVACIONES PRÓXIMAS 
-                    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                        <h3 className="text-lg font-bold text-gray-800 mb-4">Próximas Reservaciones en Agenda</h3>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse text-xs">
-                                <thead>
-                                    <tr className="bg-gray-50 border-b border-gray-200 text-gray-600">
-                                        <th className="p-3">Habitación</th>
-                                        <th className="p-3">Cliente</th>
-                                        <th className="p-3">Celular</th>
-                                        <th className="p-3">Fecha</th>
-                                        <th className="p-3">Horario</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100 text-gray-700">
-                                    {reservaciones.length > 0 ? (
-                                        reservaciones.map((r) => (
-                                            <tr key={r.renta_id} className="hover:bg-gray-50">
-                                                <td className="p-3 font-bold text-gray-900">Hab. #{r.num_habitacion}</td>
-                                                <td className="p-3 font-medium">{r.nombre_completo}</td>
-                                                <td className="p-3 text-gray-500">{r.celular}</td>
-                                                <td className="p-3 flex items-center gap-1"><Calendar className="w-3.5 h-3.5 text-blue-500" /> {r.fecha_reservacion?.split('T')[0]}</td>
-                                                <td className="p-3"><span className="px-2 py-0.5 bg-blue-50 text-blue-700 font-semibold rounded-md flex items-center gap-1 w-fit"><Clock className="w-3 h-3" /> {r.hora_reservacion}</span></td>
-                                            </tr>
-                                        ))
-                                    ) : (
-                                        <tr>
-                                            <td colSpan="5" className="p-6 text-center text-gray-500">No hay reservaciones activas pendientes.</td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                    */}
                 </div>
 
                 {/* MODAL PARA REALIZAR CHECK-IN */}
@@ -210,7 +236,7 @@ export default function RecepcionDashboard() {
                     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                         <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
                             <h2 className="text-lg font-bold text-gray-900 mb-1">Check-in - Habitación #{habitacionSeleccionada?.num_habitacion}</h2>
-                            <p className="text-xs text-gray-500 mb-4">Ingrese los datos del cliente para registrar la entrada y ocupar la habitación.</p>
+                            <p className="text-xs text-gray-500 mb-4">Inicia la renta por 4 horas ingresando los datos del cliente.</p>
 
                             <form onSubmit={handleCheckinSubmit} className="flex flex-col gap-3">
                                 <div>
@@ -232,7 +258,7 @@ export default function RecepcionDashboard() {
 
                                 <div className="flex justify-end gap-2 mt-4">
                                     <button type="button" onClick={() => setModalCheckinOpen(false)} className="px-4 py-2 border border-gray-300 rounded-xl text-xs font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer">Cancelar</button>
-                                    <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 cursor-pointer">Confirmar Check-in</button>
+                                    <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 cursor-pointer">Iniciar Renta (4 hrs)</button>
                                 </div>
                             </form>
                         </div>

@@ -87,7 +87,7 @@ app.post('/api/login', (req, res) => {
 
 app.get('/api/habitaciones', (req, res) => {
     const sql = `
-        SELECT h.*, c.nombre_completo AS cliente_nombre, r.hora_reservacion, r.fecha_reservacion, r.id AS renta_id
+        SELECT h.*, c.nombre_completo AS cliente_nombre, r.id AS renta_id, r.hora_reservacion, r.fecha_reservacion, r.hora_inicio_real
         FROM habitaciones h
         LEFT JOIN rentas r ON h.id = r.habitacion_id 
           AND r.estado_renta = 'ACTIVA' 
@@ -98,36 +98,64 @@ app.get('/api/habitaciones', (req, res) => {
         if (err) {
             return res.status(500).json({ success: false, message: 'Error al obtener habitaciones' });
         }
-        res.status(200).json({ success: true, habitaciones: results });
+
+        const ahora = new Date();
+        const horaActualMinutos = ahora.getHours() * 60 + ahora.getMinutes();
+
+        const habitacionesProcesadas = results.map(h => {
+            if (h.estado === 'LIBRE_LIMPIA' && h.hora_reservacion) {
+                const [hRes, mRes] = h.hora_reservacion.split(':').map(Number);
+                const horaResMinutos = hRes * 60 + mRes;
+                const diferenciaMinutos = horaResMinutos - horaActualMinutos;
+
+                if (diferenciaMinutos <= 120 && diferenciaMinutos >= -60) {
+                    h.estado = 'RESERVADA';
+                }
+            }
+            return h;
+        });
+
+        res.status(200).json({ success: true, habitaciones: habitacionesProcesadas });
     });
 });
 
-app.post('/api/habitaciones', (req, res) => {
-    const { num_habitacion, tipo, precio_base, estado } = req.body;
+app.post('/api/reservaciones', (req, res) => {
+    const { habitacion_id, nombre_completo, direccion, celular, precio_cobrado, fecha_reservacion, hora_reservacion, usuario_recepcion_id } = req.body;
+    
+    const horaInicioRealStr = new Date().toTimeString().substring(0, 8);
 
-    if (!num_habitacion || !tipo || !precio_base) {
-        return res.status(400).json({
-            success: false,
-            message: 'Todos los campos son obligatorios'
-        });
-    }
+    const sqlVerificar = "SELECT id FROM rentas WHERE habitacion_id = ? AND fecha_reservacion = CURDATE() AND estado_renta = 'PENDIENTE'";
+    
+    db.query(sqlVerificar, [habitacion_id], (err, results) => {
+        if (err) return res.status(500).json({ success: false, message: 'Error al verificar reservación' });
 
-    const sql = 'INSERT INTO habitaciones (num_habitacion, tipo, precio_base, estado) VALUES (?, ?, ?, ?)';
-
-    db.query(sql, [num_habitacion, tipo, precio_base, estado || 'LIBRE_LIMPIA'], (error, results) => {
-        if (error) {
-            console.error('Error al registrar la habitación:', error);
-            return res.status(500).json({
-                success: false,
-                message: 'Error al registrar la habitación'
+        if (results.length > 0) {
+            const rentaId = results[0].id;
+            const sqlUpdateRenta = `
+                UPDATE rentas 
+                SET estado_renta = 'ACTIVA', hora_inicio_real = ?, usuario_recepcion_id = ? 
+                WHERE id = ?
+            `;
+            db.query(sqlUpdateRenta, [horaInicioRealStr, usuario_recepcion_id, rentaId], (err) => {
+                if (err) return res.status(500).json({ success: false, message: 'Error al activar la reservación' });
+                res.status(200).json({ success: true, message: 'Check-in de reservación realizado con éxito' });
+            });
+        } else {
+            const sqlCliente = "INSERT INTO clientes (nombre_completo, direccion, celular) VALUES (?, ?, ?)";
+            db.query(sqlCliente, [nombre_completo, direccion, celular], (err, clienteRes) => {
+                if (err) return res.status(500).json({ success: false, message: 'Error al registrar cliente' });
+                
+                const clienteId = clienteRes.insertId;
+                const sqlRenta = `
+                    INSERT INTO rentas (habitacion_id, cliente_id, estado_renta, precio_cobrado, fecha_reservacion, hora_reservacion, hora_inicio_real, usuario_recepcion_id) 
+                    VALUES (?, ?, 'ACTIVA', ?, CURDATE(), ?, ?, ?)
+                `;
+                db.query(sqlRenta, [habitacion_id, clienteId, precio_cobrado, hora_reservacion || '00:00', horaInicioRealStr, usuario_recepcion_id], (err) => {
+                    if (err) return res.status(500).json({ success: false, message: 'Error al registrar la renta' });
+                    res.status(201).json({ success: true, message: 'Renta iniciada con éxito' });
+                });
             });
         }
-
-        res.status(201).json({
-            success: true,
-            message: 'Habitación registrada con éxito',
-            habitacion_id: results.insertId
-        });
     });
 });
 
