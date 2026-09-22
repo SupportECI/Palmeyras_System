@@ -349,14 +349,16 @@ app.put('/api/reservas/cancelar/:id', (req, res) => {
         });
     }
 
+    // 1. Buscar la renta para saber qué habitación liberar
     const sqlBuscar = "SELECT habitacion_id FROM rentas WHERE id = ? AND estado_renta = 'ACTIVA'";
     db.query(sqlBuscar, [rentaId], (err, resultados) => {
         if (err || resultados.length === 0) {
-            return res.status(404).json({ success: false, message: 'Reservación no encontrada' });
+            return res.status(404).json({ success: false, message: 'Reservación activa no encontrada' });
         }
 
         const habitacionId = resultados[0].habitacion_id;
 
+        // 2. Actualizar la renta a estado CANCELADA y guardar el motivo
         const sqlActualizarRenta = `
             UPDATE rentas 
             SET estado_renta = 'CANCELADA', motivo_cancelacion = ?, usuario_cancela_id = ? 
@@ -365,21 +367,49 @@ app.put('/api/reservas/cancelar/:id', (req, res) => {
 
         db.query(sqlActualizarRenta, [motivo_cancelacion, usuario_cancela_id || null, rentaId], (err) => {
             if (err) {
-                return res.status(500).json({ success: false, message: 'Error al cancelar la renta' });
+                console.error("Error al cancelar la renta:", err);
+                return res.status(500).json({ success: false, message: 'Error al procesar la cancelación' });
             }
 
+            // 3. Liberar la habitación de vuelta a limpia
             const sqlLiberarHabitacion = "UPDATE habitaciones SET estado = 'LIBRE_LIMPIA' WHERE id = ?";
-            db.query(sqlLiberarHabitacion, [habitacionId], (err) => {
-                if (err) {
-                    return res.status(500).json({ success: false, message: 'Error al liberar la habitación' });
+            db.query(sqlLiberarHabitacion, [habitacionId], (errHab) => {
+                if (errHab) {
+                    return res.status(500).json({ success: false, message: 'Error al liberar la habitación asociada' });
                 }
 
                 res.status(200).json({
                     success: true,
-                    message: 'Reservación cancelada con éxito'
+                    message: 'Reservación cancelada con éxito y habitación liberada'
                 });
             });
         });
+    });
+});
+
+app.put('/api/reservaciones/:id/activar', (req, res) => {
+    const rentaId = req.params.id;
+    const { usuario_recepcion_id, precio_cobrado } = req.body;
+    
+    const horaInicioRealStr = new Date().toTimeString().substring(0, 8); // Hora real de entrada
+
+    const sql = `
+        UPDATE rentas 
+        SET estado_renta = 'ACTIVA', hora_inicio_real = ?, usuario_recepcion_id = ?, precio_cobrado = ? 
+        WHERE id = ?
+    `;
+
+    db.query(sql, [horaInicioRealStr, usuario_recepcion_id, precio_cobrado, rentaId], (err, result) => {
+        if (err) {
+            console.error("Error al activar la reservación:", err);
+            return res.status(500).json({ success: false, message: 'Error al activar la reservación' });
+        }
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ success: false, message: 'Reservación no encontrada' });
+        }
+
+        res.status(200).json({ success: true, message: 'Reservación activada con éxito' });
     });
 });
 
@@ -564,6 +594,107 @@ app.delete('/api/usuarios/:id', (req, res) => {
             return res.status(500).json({ success: false, message: 'Error al eliminar el usuario' });
         }
         res.status(200).json({ success: true, message: 'Usuario eliminado correctamente' });
+    });
+});
+
+app.post('/api/habitaciones/:id/completar-limpieza', (req, res) => {
+    const habitacionId = req.params.id;
+    const { tipo_limpieza, recamarista_id, checks } = req.body; 
+
+    let sqlChecklist = '';
+    let valores = [];
+
+    if (tipo_limpieza === 'POST_USO') {
+        sqlChecklist = `
+            INSERT INTO checklist_limpieza 
+            (habitacion_id, usuario_recamarista_id, tipo_limpieza, sabanas, fundas, cubrecolchon, limpieza_pisos, papel, toallas, jabon, shampoo, aromatizante, limpieza_bano) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+        valores = [
+            habitacionId,
+            recamarista_id || null,
+            tipo_limpieza,
+            checks.sabanas ? 1 : 0,
+            checks.fundas ? 1 : 0,
+            checks.cubrecolchon ? 1 : 0,
+            checks.limpiezaPisos ? 1 : 0,
+            checks.papelBano ? 1 : 0,
+            checks.toallas ? 1 : 0,
+            checks.jabon ? 1 : 0,
+            0,
+            checks.aromatizante ? 1 : 0,
+            checks.limpiezaBano ? 1 : 0
+        ];
+    } else {
+        // LIMPIEZA SEMANAL
+        sqlChecklist = `
+            INSERT INTO checklist_limpieza 
+            (habitacion_id, usuario_recamarista_id, tipo_limpieza, limpieza_general, ventanas, ventiladores, vidrios, televisores, hongos, focos, cortinas, internet, tv_revision, pilas_controles) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+        valores = [
+            habitacionId,
+            recamarista_id || null,
+            tipo_limpieza,
+            checks.limpiezaGeneral ? 1 : 0,
+            checks.ventanas ? 1 : 0,
+            checks.ventiladores ? 1 : 0,
+            checks.vidrios ? 1 : 0,
+            checks.televisores ? 1 : 0,
+            checks.hongos ? 1 : 0,
+            checks.focos ? 1 : 0,
+            checks.cortinas ? 1 : 0,
+            checks.internet ? 1 : 0,
+            checks.tvRevision ? 1 : 0,
+            checks.pilasControles ? 1 : 0
+        ];
+    }
+
+    db.query(sqlChecklist, valores, (err) => {
+        if (err) {
+            console.error("Error al guardar checklist:", err);
+            return res.status(500).json({ success: false, message: 'Error al registrar el checklist' });
+        }
+
+        const sqlHabitacion = "UPDATE habitaciones SET estado = 'LIBRE_LIMPIA' WHERE id = ?";
+        db.query(sqlHabitacion, [habitacionId], (errHab) => {
+            if (errHab) {
+                return res.status(500).json({ success: false, message: 'Error al liberar la habitación' });
+            }
+            res.status(200).json({ success: true, message: 'Limpieza registrada y habitación disponible' });
+        });
+    });
+});
+
+app.put('/api/habitaciones/:id/liberar-mantenimiento', (req, res) => {
+    const habitacionId = req.params.id;
+
+    const sql = "UPDATE habitaciones SET estado = 'LIBRE_LIMPIA' WHERE id = ?";
+    db.query(sql, [habitacionId], (err) => {
+        if (err) {
+            return res.status(500).json({ success: false, message: 'Error al liberar mantenimiento' });
+        }
+        res.status(200).json({ success: true, message: 'Habitación de mantenimiento liberada a limpia' });
+    });
+});
+
+app.put('/api/habitaciones/:id/estado-operativo', (req, res) => {
+    const habitacionId = req.params.id;
+    const { estado, motivo_mantenimiento } = req.body; 
+
+    const sql = "UPDATE habitaciones SET estado = ? WHERE id = ?";
+    db.query(sql, [estado, habitacionId], (err) => {
+        if (err) {
+            console.error("Error al actualizar estado operativo:", err);
+            return res.status(500).json({ success: false, message: 'Error al actualizar el estado operativo' });
+        }
+
+        if (estado === 'MANTENIMIENTO' && motivo_mantenimiento) {
+            const sqlMant = "INSERT INTO mantenimientos_habitacion (habitacion_id, motivo) VALUES (?, ?)";
+            db.query(sqlMant, [habitacionId, motivo_mantenimiento], () => {});
+        }
+
+        res.status(200).json({ success: true, message: 'Estado operativo actualizado correctamente' });
     });
 });
 

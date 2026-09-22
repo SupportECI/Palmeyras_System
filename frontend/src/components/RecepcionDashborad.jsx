@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../services/api";
 import Sidebar from "./Sidebar";
-import { UserCheck, LogOut, Clock } from 'lucide-react';
+import { UserCheck, LogOut, Clock, XCircle } from 'lucide-react';
 
 // Componente secundario para calcular y mostrar el cronómetro de las 4 horas de renta
 function CronometroRenta({ horaInicioReal }) {
@@ -59,6 +59,15 @@ export default function RecepcionDashboard() {
     const [celular, setCelular] = useState('');
     const [precioCobrado, setPrecioCobrado] = useState('');
 
+    // Estados adicionales para manejar si es check-in normal o de reserva existente
+    const [esReservacion, setEsReservacion] = useState(false);
+    const [rentaIdActual, setRentaIdActual] = useState(null);
+
+    // Estados para el modal local de cancelación rápida desde la tarjeta
+    const [modalCancelarOpen, setModalCancelarOpen] = useState(false);
+    const [rentaACancelarId, setRentaACancelarId] = useState(null);
+    const [motivoCancelacion, setMotivoCancelacion] = useState('');
+
     useEffect(() => {
         const usuarioGuardado = localStorage.getItem('usuario');
         if (usuarioGuardado) {
@@ -81,27 +90,36 @@ export default function RecepcionDashboard() {
         }
     };
 
-    // Realizar Check-in (Cambia a OCUPADA, activa la reservación y registra la hora real de entrada)
+    // Realizar Check-in (Distingue entre Walk-in nuevo o Activación de Reservación existente)
     const handleCheckinSubmit = async (e) => {
         e.preventDefault();
         try {
             const usuarioGuardado = JSON.parse(localStorage.getItem('usuario'));
             const usuarioId = usuarioGuardado ? usuarioGuardado.id : null;
 
-            const ahora = new Date();
-            const fechaHoy = ahora.toISOString().split('T')[0];
-            const horaActual = ahora.toTimeString().substring(0, 5);
+            if (esReservacion) {
+                // CASO A: Activar reservación existente utilizando su renta_id
+                await api.put(`/reservaciones/${rentaIdActual}/activar`, {
+                    usuario_recepcion_id: usuarioId,
+                    precio_cobrado: precioCobrado
+                });
+            } else {
+                // CASO B: Cliente nuevo de paso (Walk-in)
+                const ahora = new Date();
+                const fechaHoy = ahora.toISOString().split('T')[0];
+                const horaActual = ahora.toTimeString().substring(0, 5);
 
-            await api.post('/reservaciones', {
-                habitacion_id: habitacionSeleccionada.id,
-                nombre_completo: nombreCliente,
-                direccion: direccion,
-                celular: celular,
-                precio_cobrado: precioCobrado,
-                fecha_reservacion: fechaHoy,
-                hora_reservacion: horaActual,
-                usuario_recepcion_id: usuarioId
-            });
+                await api.post('/reservaciones', {
+                    habitacion_id: habitacionSeleccionada.id,
+                    nombre_completo: nombreCliente,
+                    direccion: direccion,
+                    celular: celular,
+                    precio_cobrado: precioCobrado,
+                    fecha_reservacion: fechaHoy,
+                    hora_reservacion: horaActual,
+                    usuario_recepcion_id: usuarioId
+                });
+            }
 
             // Cambiar estado formalmente a OCUPADA
             await api.put(`/habitaciones/${habitacionSeleccionada.id}/estado`, {
@@ -133,12 +151,52 @@ export default function RecepcionDashboard() {
         }
     };
 
+    // Cancelación rápida desde la tarjeta de la habitación reservada
+    const abrirModalCancelar = (habitacion) => {
+        if (!habitacion.renta_id) {
+            alert('No se encontró una renta asociada a esta habitación para cancelar.');
+            return;
+        }
+        setRentaACancelarId(habitacion.renta_id);
+        setMotivoCancelacion('');
+        setModalCancelarOpen(true);
+    };
+
+    const handleCancelarRentaSubmit = async (e) => {
+        e.preventDefault();
+        if (!motivoCancelacion.trim()) {
+            alert('Debe especificar un motivo de cancelación.');
+            return;
+        }
+
+        try {
+            const usuarioGuardado = JSON.parse(localStorage.getItem('usuario'));
+            const usuarioId = usuarioGuardado ? usuarioGuardado.id : null;
+
+            await api.put(`/reservas/cancelar/${rentaACancelarId}`, {
+                motivo_cancelacion: motivoCancelacion,
+                usuario_cancela_id: usuarioId
+            });
+
+            setModalCancelarOpen(false);
+            setRentaACancelarId(null);
+            setMotivoCancelacion('');
+            alert('Reservación cancelada correctamente.');
+            cargarDatosRecepcion();
+        } catch (error) {
+            console.error('Error al cancelar reservación', error);
+            alert(error.response?.data?.message || 'No se pudo cancelar la reservación');
+        }
+    };
+
     const limpiarFormularioCheckin = () => {
         setHabitacionSeleccionada(null);
         setNombreCliente('');
         setDireccion('');
         setCelular('');
         setPrecioCobrado('');
+        setEsReservacion(false);
+        setRentaIdActual(null);
     };
 
     return (
@@ -191,25 +249,46 @@ export default function RecepcionDashboard() {
                                     </div>
 
                                     {/* Botones de Acción / Interacción según el estado */}
-                                    <div className="mt-4 pt-3 border-t border-gray-100 flex justify-end gap-2">
+                                    <div className="mt-4 pt-3 border-t border-gray-100 flex flex-col gap-2">
                                         {h.estado === 'LIBRE_LIMPIA' && (
                                             <button
-                                                onClick={() => { setHabitacionSeleccionada(h); setPrecioCobrado(h.precio_base); setModalCheckinOpen(true); }}
+                                                onClick={() => { 
+                                                    setHabitacionSeleccionada(h); 
+                                                    setPrecioCobrado(h.precio_base); 
+                                                    setEsReservacion(false);
+                                                    setModalCheckinOpen(true); 
+                                                }}
                                                 className="w-full py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 transition flex items-center justify-center gap-1 cursor-pointer shadow-sm"
                                             >
                                                 <UserCheck className="w-4 h-4" /> Check-in
                                             </button>
                                         )}
 
-                                        {/* NUEVO: Permite hacer Check-in a la habitación que estaba bloqueada por reservación */}
+                                        {/* Check-in y Cancelación para habitación bloqueada por reservación */}
                                         {h.estado === 'RESERVADA' && (
-                                            <button
-                                                onClick={() => { setHabitacionSeleccionada(h); setPrecioCobrado(h.precio_base); setModalCheckinOpen(true); }}
-                                                className="w-full py-2 bg-amber-600 text-white rounded-xl text-xs font-semibold hover:bg-amber-700 transition flex items-center justify-center gap-1 cursor-pointer shadow-sm"
-                                                title="El cliente de la reservación ha llegado"
-                                            >
-                                                <UserCheck className="w-4 h-4" /> Check-in (Reservación)
-                                            </button>
+                                            <>
+                                                <button
+                                                    onClick={() => { 
+                                                        setHabitacionSeleccionada(h); 
+                                                        setPrecioCobrado(h.precio_base); 
+                                                        setNombreCliente(h.cliente_nombre || '');
+                                                        setCelular(h.celular || '');
+                                                        setRentaIdActual(h.renta_id);
+                                                        setEsReservacion(true);
+                                                        setModalCheckinOpen(true); 
+                                                    }}
+                                                    className="w-full py-2 bg-amber-600 text-white rounded-xl text-xs font-semibold hover:bg-amber-700 transition flex items-center justify-center gap-1 cursor-pointer shadow-sm"
+                                                    title="El cliente de la reservación ha llegado"
+                                                >
+                                                    <UserCheck className="w-4 h-4" /> Check-in (Reservación)
+                                                </button>
+                                                <button
+                                                    onClick={() => abrirModalCancelar(h)}
+                                                    className="w-full py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-semibold hover:bg-red-100 transition flex items-center justify-center gap-1 cursor-pointer"
+                                                >
+                                                    <XCircle className="w-3.5 h-3.5" /> Cancelar Reservación
+                                                </button>
+                                            </>
                                         )}
 
                                         {h.estado === 'OCUPADA' && (
@@ -217,7 +296,7 @@ export default function RecepcionDashboard() {
                                                 onClick={() => handleCheckout(h.id)}
                                                 className="w-full py-2 bg-orange-600 text-white rounded-xl text-xs font-semibold hover:bg-orange-700 transition flex items-center justify-center gap-1 cursor-pointer shadow-sm"
                                             >
-                                                <LogOut className="w-4 h-4" /> Realizar Check-out (A Sucia)
+                                                <LogOut className="w-4 h-4" /> Realizar Check-out
                                             </button>
                                         )}
 
@@ -236,21 +315,36 @@ export default function RecepcionDashboard() {
                     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                         <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
                             <h2 className="text-lg font-bold text-gray-900 mb-1">Check-in - Habitación #{habitacionSeleccionada?.num_habitacion}</h2>
-                            <p className="text-xs text-gray-500 mb-4">Inicia la renta por 4 horas ingresando los datos del cliente.</p>
+                            <p className="text-xs text-gray-500 mb-4">
+                                {esReservacion ? 'Confirme la entrada del cliente registrado en la agenda.' : 'Inicia la renta por 4 horas ingresando los datos del cliente.'}
+                            </p>
 
                             <form onSubmit={handleCheckinSubmit} className="flex flex-col gap-3">
                                 <div>
                                     <label className="block text-xs font-semibold text-gray-700 mb-1">Nombre Completo</label>
-                                    <input type="text" value={nombreCliente} onChange={(e) => setNombreCliente(e.target.value)} className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500" required />
+                                    <input 
+                                        type="text" 
+                                        value={nombreCliente} 
+                                        onChange={(e) => setNombreCliente(e.target.value)} 
+                                        disabled={esReservacion}
+                                        className={`w-full border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none ${esReservacion ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : 'focus:border-blue-500'}`} 
+                                        required 
+                                    />
                                 </div>
-                                <div>
-                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Dirección</label>
-                                    <input type="text" value={direccion} onChange={(e) => setDireccion(e.target.value)} className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500" required />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Celular</label>
-                                    <input type="text" value={celular} onChange={(e) => setCelular(e.target.value)} className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500" required />
-                                </div>
+
+                                {!esReservacion && (
+                                    <>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-gray-700 mb-1">Dirección</label>
+                                            <input type="text" value={direccion} onChange={(e) => setDireccion(e.target.value)} className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500" required />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-gray-700 mb-1">Celular</label>
+                                            <input type="text" value={celular} onChange={(e) => setCelular(e.target.value)} className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500" required />
+                                        </div>
+                                    </>
+                                )}
+
                                 <div>
                                     <label className="block text-xs font-semibold text-gray-700 mb-1">Precio Cobrado ($)</label>
                                     <input type="number" value={precioCobrado} onChange={(e) => setPrecioCobrado(e.target.value)} className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500" required />
@@ -258,7 +352,49 @@ export default function RecepcionDashboard() {
 
                                 <div className="flex justify-end gap-2 mt-4">
                                     <button type="button" onClick={() => setModalCheckinOpen(false)} className="px-4 py-2 border border-gray-300 rounded-xl text-xs font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer">Cancelar</button>
-                                    <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 cursor-pointer">Iniciar Renta (4 hrs)</button>
+                                    <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 cursor-pointer">
+                                        {esReservacion ? 'Confirmar y Activar Renta' : 'Iniciar Renta (4 hrs)'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* MODAL PARA CANCELAR RESERVACIÓN */}
+                {modalCancelarOpen && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+                            <h2 className="text-lg font-bold text-gray-900 mb-1">Cancelar Reservación</h2>
+                            <p className="text-xs text-gray-500 mb-4">Por motivos de auditoría, es obligatorio registrar la razón por la cual se cancela esta reservación.</p>
+
+                            <form onSubmit={handleCancelarRentaSubmit} className="flex flex-col gap-3">
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Motivo de Cancelación *</label>
+                                    <textarea 
+                                        value={motivoCancelacion} 
+                                        onChange={(e) => setMotivoCancelacion(e.target.value)} 
+                                        rows="3"
+                                        placeholder="Ej. El cliente no se presentó a la hora acordada..."
+                                        className="w-full border border-gray-300 rounded-xl p-3 text-xs outline-none focus:border-red-500 resize-none" 
+                                        required 
+                                    />
+                                </div>
+
+                                <div className="flex justify-end gap-2 mt-4">
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setModalCancelarOpen(false)} 
+                                        className="px-4 py-2 border border-gray-300 rounded-xl text-xs font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer"
+                                    >
+                                        Volver
+                                    </button>
+                                    <button 
+                                        type="submit" 
+                                        className="px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-semibold hover:bg-red-700 cursor-pointer shadow-sm"
+                                    >
+                                        Confirmar Cancelación
+                                    </button>
                                 </div>
                             </form>
                         </div>

@@ -2,13 +2,10 @@ import { useEffect, useState } from "react";
 import api from "../services/api";
 import Sidebar from "./Sidebar";
 import {
-    DoorOpen,
-    BedSingle,
-    Ban,
-    BrushCleaning,
-    DoorClosedLocked,
-    Trash,
-    Plus
+    Plus,
+    Wrench,
+    CalendarCheck,
+    DoorOpen
 } from 'lucide-react';
 
 export default function SupervisorDashboard() {
@@ -26,6 +23,8 @@ export default function SupervisorDashboard() {
     const [libreSucia, setLibreSucia] = useState('');
     const [ocupada, setOcupada] = useState('');
     const [reservada, setReservada] = useState('');
+    const [mantenimientoCount, setMantenimientoCount] = useState('');
+    const [limpiezaSemanalCount, setLimpiezaSemanalCount] = useState('');
     const [habitaciones, setHabitaciones] = useState([]);
 
     /* Estados para el formulario de nueva habitación */
@@ -37,31 +36,25 @@ export default function SupervisorDashboard() {
     /* estado para modal de agregar habitacion */
     const [isOpen, setIsOpen] = useState(false);
 
-    /* estado para confirmar borrar habitacion */
-    const [isCofirmar, setIsConfirmar] = useState(null);
-    const [idBorrando, setIdBorrando] = useState(null);
-
     /* estados para filtrar busquedas */
     const [busqueda, setBusqueda] = useState('');
     const [filtroEstado, setFiltroEstado] = useState('TODOS');
 
     const [isCollapsed, setIsCollapsed] = useState(false);
 
-    // Función principal para obtener habitaciones y evaluar cambios automáticos de horario
+    // Función principal para obtener habitaciones
     const obtenerHabitaciones = async () => {
         try {
             const respuesta = await api.get('/habitaciones');
             let lista = respuesta.data.habitaciones;
 
-            // Obtenemos fecha y hora exacta del equipo
             const ahora = new Date();
             const fechaHoy = ahora.toISOString().split('T')[0];
-            const horaActual = ahora.toTimeString().substring(0, 5); // formato HH:MM
+            const horaActual = ahora.toTimeString().substring(0, 5);
 
             let huboCambios = false;
 
             for (let h of lista) {
-                // Si la habitación está libre y tiene una reserva asignada para hoy a esta hora o antes
                 if (
                     (h.estado === 'LIBRE_LIMPIA' || h.estado === 'LIBRE_SUCIA') &&
                     h.hora_reservacion &&
@@ -71,7 +64,6 @@ export default function SupervisorDashboard() {
                     const horaReservaStr = h.hora_reservacion.substring(0, 5);
 
                     if (fechaReservaStr === fechaHoy && horaActual >= horaReservaStr) {
-                        // Cambiamos automáticamente a 'RESERVADA' en el backend
                         await api.put(`/habitaciones/${h.id}/estado`, {
                             estado: 'RESERVADA',
                             rol_usuario: 'SUPERVISOR'
@@ -92,6 +84,8 @@ export default function SupervisorDashboard() {
             setLibreSucia(lista.filter(h => h.estado === 'LIBRE_SUCIA').length);
             setOcupada(lista.filter(h => h.estado === 'OCUPADA').length);
             setReservada(lista.filter(h => h.estado === 'RESERVADA').length);
+            setMantenimientoCount(lista.filter(h => h.estado === 'MANTENIMIENTO').length);
+            setLimpiezaSemanalCount(lista.filter(h => h.estado === 'LIMPIEZA_SEMANAL').length);
         } catch (error) {
             console.error('Error al obtener las habitaciones', error);
         }
@@ -99,21 +93,26 @@ export default function SupervisorDashboard() {
 
     useEffect(() => {
         obtenerHabitaciones();
-
         const intervalo = setInterval(() => {
             obtenerHabitaciones();
         }, 30000);
-
         return () => clearInterval(intervalo);
     }, []);
 
-    const cambiarEstadoHabitacion = async (idHabitacion, nuevoEstado) => {
+    // Función para que el supervisor ordene Limpieza Semanal o Mantenimiento
+    const cambiarEstadoOperativo = async (idHabitacion, nuevoEstado) => {
+        const mensaje = nuevoEstado === 'MANTENIMIENTO' 
+            ? '¿Desea bloquear esta habitación por Mantenimiento?'
+            : '¿Desea programar la Limpieza Semanal para esta habitación?';
+            
+        if (!window.confirm(mensaje)) return;
+
         try {
-            await api.put(`/habitaciones/${idHabitacion}/estado`, { estado: nuevoEstado });
+            await api.put(`/habitaciones/${idHabitacion}/estado-operativo`, { estado: nuevoEstado });
             obtenerHabitaciones();
         } catch (error) {
-            console.error('Error al actualizar el estado:', error);
-            alert('No se pudo actualizar el estado de la habitación');
+            console.error('Error al cambiar estado operativo:', error);
+            alert('No se pudo actualizar el estado');
         }
     };
 
@@ -133,38 +132,12 @@ export default function SupervisorDashboard() {
             setPrecioBase('');
             setEstadoHabitacion('LIBRE_LIMPIA');
             obtenerHabitaciones();
-
         } catch (error) {
             console.error('Error al registrar la habitación', error);
             alert('No se pudo registrar la habitación');
         }
     };
 
-    const eliminarHabitacion = async (idHabitacion) => {
-        setIdBorrando(idHabitacion);
-
-        setTimeout(async () => {
-            try {
-                const response = await fetch(`http://localhost:4000/api/habitaciones/${idHabitacion}`, {
-                    method: 'DELETE'
-                });
-
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.message || 'Error al eliminar');
-
-                setIsConfirmar(null);
-                setIdBorrando(null);
-                obtenerHabitaciones();
-
-            } catch (error) {
-                console.error('Error detallado:', error);
-                setIdBorrando(null);
-                alert('No se pudo eliminar la habitación');
-            }
-        }, 300);
-    };
-
-    // Filtramos las habitaciones según búsqueda y estado
     const habitacionesFiltradas = habitaciones.filter((h) => {
         const coincideBusqueda = h.num_habitacion.toString().toLowerCase().includes(busqueda.toLowerCase());
 
@@ -173,6 +146,8 @@ export default function SupervisorDashboard() {
         if (filtroEstado === 'SUCIAS') return coincideBusqueda && (h.estado === 'LIBRE_SUCIA');
         if (filtroEstado === 'OCUPADAS') return coincideBusqueda && (h.estado === 'OCUPADA');
         if (filtroEstado === 'RESERVADAS') return coincideBusqueda && (h.estado === 'RESERVADA');
+        if (filtroEstado === 'MANTENIMIENTO') return coincideBusqueda && (h.estado === 'MANTENIMIENTO');
+        if (filtroEstado === 'LIMPIEZA_SEMANAL') return coincideBusqueda && (h.estado === 'LIMPIEZA_SEMANAL');
 
         return coincideBusqueda;
     });
@@ -193,60 +168,87 @@ export default function SupervisorDashboard() {
                     </div>
                 </header>
 
-                <div className="grid grid-cols-5 gap-6 py-10 px-5">
-                    <div className="flex flex-col gap-6 rounded-xl border border-gray-200 shadow-sm bg-white p-6">
+                {/* TARJETAS RESUMEN */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 py-8 px-5">
+                    <div className="flex flex-col gap-4 rounded-xl border border-gray-200 shadow-sm bg-white p-5">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-xs font-medium text-gray-600">Habitaciones Totales</p>
-                                <p className="text-2xl text-center font-semibold text-gray-900 mt-1">{totalHabitaciones}</p>
+                                <p className="text-xs font-medium text-gray-600">Totales</p>
+                                <p className="text-2xl font-semibold text-gray-900 mt-1">{totalHabitaciones}</p>
                             </div>
-                            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center"><BedSingle /></div>
+                            <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                            </div>
                         </div>
                     </div>
-                    <div className="flex flex-col gap-6 rounded-xl border border-gray-200 shadow-sm bg-white p-6">
+
+                    <div className="flex flex-col gap-4 rounded-xl border border-gray-200 shadow-sm bg-white p-5">
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-xs font-medium text-gray-600">Disponibles</p>
-                                <p className="text-2xl text-center font-semibold text-gray-900 mt-1">{libreLimpia}</p>
+                                <p className="text-2xl font-semibold text-gray-900 mt-1">{libreLimpia}</p>
                             </div>
-                            <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center"><DoorOpen /></div>
+                            <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            </div>
                         </div>
                     </div>
-                    <div className="flex flex-col gap-6 rounded-xl border border-gray-200 shadow-sm bg-white p-6">
+
+                    <div className="flex flex-col gap-4 rounded-xl border border-gray-200 shadow-sm bg-white p-5">
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-xs font-medium text-gray-600">Por Limpiar</p>
-                                <p className="text-2xl text-center font-semibold text-gray-900 mt-1">{libreSucia}</p>
+                                <p className="text-2xl font-semibold text-gray-900 mt-1">{libreSucia}</p>
                             </div>
-                            <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center"><BrushCleaning /></div>
+                            <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+                            </div>
                         </div>
                     </div>
-                    <div className="flex flex-col gap-6 rounded-xl border border-gray-200 shadow-sm bg-white p-6">
+
+                    <div className="flex flex-col gap-4 rounded-xl border border-gray-200 shadow-sm bg-white p-5">
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-xs font-medium text-gray-600">Ocupadas</p>
-                                <p className="text-2xl text-center font-semibold text-gray-900 mt-1">{ocupada}</p>
+                                <p className="text-2xl font-semibold text-gray-900 mt-1">{ocupada}</p>
                             </div>
-                            <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center"><Ban /></div>
+                            <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                            </div>
                         </div>
                     </div>
-                    <div className="flex flex-col gap-6 rounded-xl border border-gray-200 shadow-sm bg-white p-6">
+
+                    <div className="flex flex-col gap-4 rounded-xl border border-gray-200 shadow-sm bg-white p-5">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-xs font-medium text-gray-600">Reservadas</p>
-                                <p className="text-2xl text-center font-semibold text-gray-900 mt-1">{reservada}</p>
+                                <p className="text-xs font-medium text-gray-600">Mantenimiento</p>
+                                <p className="text-2xl font-semibold text-gray-900 mt-1">{mantenimientoCount}</p>
                             </div>
-                            <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center"><DoorClosedLocked /></div>
+                            <div className="w-10 h-10 bg-red-50 text-red-600 rounded-xl flex items-center justify-center">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col gap-4 rounded-xl border border-gray-200 shadow-sm bg-white p-5">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-xs font-medium text-gray-600">Limp. Semanal</p>
+                                <p className="text-2xl font-semibold text-gray-900 mt-1">{limpiezaSemanalCount}</p>
+                            </div>
+                            <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <div className="px-5 mb-10">
                     <div className="flex justify-between items-center mb-5">
-                        <h3 className="text-xl font-bold text-gray-800">Listado de Habitaciones</h3>
+                        <h3 className="text-xl font-bold text-gray-800">Listado de Habitaciones y Control Operativo</h3>
                         <button onClick={() => setIsOpen(true)} className='flex gap-2 px-4 py-2.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-300 font-medium text-sm transition cursor-pointer'>
                             <Plus className="w-5 h-5" />
-                            <span>Agregar Habitacion</span>
+                            <span>Agregar Habitación</span>
                         </button>
                     </div>
 
@@ -262,11 +264,11 @@ export default function SupervisorDashboard() {
                         </div>
 
                         <div className="flex flex-wrap gap-2 w-full md:w-auto">
-                            <button onClick={() => setFiltroEstado('TODOS')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'TODOS' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Todas ({habitaciones.length})</button>
-                            <button onClick={() => setFiltroEstado('DISPONIBLES')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'DISPONIBLES' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-700 hover:bg-green-100'}`}>Disponibles ({libreLimpia})</button>
-                            <button onClick={() => setFiltroEstado('SUCIAS')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'SUCIAS' ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700 hover:bg-purple-100'}`}>Por Limpiar ({libreSucia})</button>
-                            <button onClick={() => setFiltroEstado('OCUPADAS')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'OCUPADAS' ? 'bg-orange-600 text-white' : 'bg-orange-50 text-orange-700 hover:bg-orange-100'}`}>Ocupadas ({ocupada})</button>
-                            <button onClick={() => setFiltroEstado('RESERVADAS')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'RESERVADAS' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-700 hover:bg-red-100'}`}>Reservadas ({reservada})</button>
+                            <button onClick={() => setFiltroEstado('TODOS')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'TODOS' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Todas</button>
+                            <button onClick={() => setFiltroEstado('DISPONIBLES')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'DISPONIBLES' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-700 hover:bg-green-100'}`}>Disponibles</button>
+                            <button onClick={() => setFiltroEstado('SUCIAS')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'SUCIAS' ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700 hover:bg-purple-100'}`}>Por Limpiar</button>
+                            <button onClick={() => setFiltroEstado('MANTENIMIENTO')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'MANTENIMIENTO' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-700 hover:bg-red-100'}`}>Mantenimiento</button>
+                            <button onClick={() => setFiltroEstado('LIMPIEZA_SEMANAL')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'LIMPIEZA_SEMANAL' ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'}`}>Limpieza Semanal</button>
                         </div>
                     </div>
 
@@ -275,72 +277,61 @@ export default function SupervisorDashboard() {
                             habitacionesFiltradas.map((h) => (
                                 <div
                                     key={h.id}
-                                    className={`bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-between transition-all duration-300 transform ${idBorrando === h.id ? 'opacity-0 scale-90 pointer-events-none' : 'opacity-100 scale-100'}`}
+                                    className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-between"
                                 >
                                     <div>
                                         <div className="flex justify-between items-center mb-3">
                                             <span className="font-bold text-lg text-gray-800">Hab. {h.num_habitacion}</span>
 
-                                            <select
-                                                value={h.estado}
-                                                onChange={(e) => cambiarEstadoHabitacion(h.id, e.target.value)}
-                                                className={`px-3 py-1 text-xs font-semibold rounded-lg border outline-none cursor-pointer transition ${h.estado === 'LIBRE_LIMPIA' ? 'bg-green-100 text-green-700 border-green-300' :
-                                                        h.estado === 'LIBRE_SUCIA' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
-                                                            h.estado === 'OCUPADA' ? 'bg-red-100 text-red-700 border-red-300' :
-                                                                'bg-blue-100 text-blue-700 border-blue-300'
-                                                    }`}
-                                            >
-                                                <option value="LIBRE_LIMPIA">Limpia</option>
-                                                <option value="LIBRE_SUCIA">Sucia</option>
-                                                <option value="OCUPADA">Ocupada</option>
-                                                <option value="RESERVADA">Reservada</option>
-                                            </select>
+                                            <span className={`px-2.5 py-1 text-xs font-semibold rounded-lg border ${
+                                                h.estado === 'LIBRE_LIMPIA' ? 'bg-green-100 text-green-700 border-green-300' :
+                                                h.estado === 'LIBRE_SUCIA' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
+                                                h.estado === 'OCUPADA' ? 'bg-red-100 text-red-700 border-red-300' :
+                                                h.estado === 'RESERVADA' ? 'bg-blue-100 text-blue-700 border-blue-300' :
+                                                h.estado === 'MANTENIMIENTO' ? 'bg-red-200 text-red-800 border-red-400 font-bold' :
+                                                'bg-blue-200 text-blue-800 border-blue-400 font-bold'
+                                            }`}>
+                                                {h.estado === 'LIBRE_LIMPIA' ? 'Limpia' : 
+                                                 h.estado === 'LIBRE_SUCIA' ? 'Sucia' : 
+                                                 h.estado === 'OCUPADA' ? 'Ocupada' : 
+                                                 h.estado === 'RESERVADA' ? 'Reservada' :
+                                                 h.estado === 'MANTENIMIENTO' ? 'Mantenimiento' : 'Limpieza Semanal'}
+                                            </span>
                                         </div>
 
                                         <p className="text-sm text-gray-600">Tipo: <span className="font-medium text-gray-800">{h.tipo}</span></p>
-                                        <p className="text-sm text-gray-600">Precio: <span className="font-medium text-gray-800">${h.precio_base}</span></p>
+                                        <p className="text-sm text-gray-600 mb-3">Precio: <span className="font-medium text-gray-800">${h.precio_base}</span></p>
 
-                                        {h.estado === 'LIBRE_LIMPIA' && h.hora_reservacion && (
-                                            <div className="mt-2.5 pt-2.5 border-t border-gray-100 bg-amber-50/50 p-2 rounded-xl border border-amber-200">
-                                                <p className="text-xs text-amber-800 font-bold flex items-center gap-1">
-                                                    📅 Reservada para el <span className="text-amber-900">{h.fecha_reservacion?.split('T')[0]}</span> a las <span className="text-amber-900">{h.hora_reservacion}</span>
-                                                </p>
-                                                <p className="text-xs text-gray-600 mt-0.5">
-                                                    Cliente: <span className="font-semibold">{h.cliente_nombre}</span>
-                                                </p>
-                                            </div>
-                                        )}
+                                        {/* ACCIONES RÁPIDAS DEL SUPERVISOR */}
+                                        <div className="flex flex-col gap-1.5 pt-2 border-t border-gray-100">
+                                            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide">Acciones del Supervisor:</p>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {h.estado !== 'MANTENIMIENTO' ? (
+                                                    <button
+                                                        onClick={() => cambiarEstadoOperativo(h.id, 'MANTENIMIENTO')}
+                                                        className="py-1.5 px-2 bg-red-50 text-red-700 hover:bg-red-100 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1 cursor-pointer border border-red-200"
+                                                    >
+                                                        <Wrench className="w-3.5 h-3.5" /> Mantenimiento
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => cambiarEstadoOperativo(h.id, 'LIBRE_LIMPIA')}
+                                                        className="py-1.5 px-2 bg-green-50 text-green-700 hover:bg-green-100 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1 cursor-pointer border border-green-200 col-span-2"
+                                                    >
+                                                        <DoorOpen className="w-3.5 h-3.5" /> Liberar de Mantenimiento
+                                                    </button>
+                                                )}
 
-                                        {(h.estado === 'OCUPADA' || h.estado === 'RESERVADA') && h.cliente_nombre && (
-                                            <div className="mt-2.5 pt-2.5 border-t border-gray-100">
-                                                <p className="text-xs text-blue-600 font-semibold">
-                                                    Cliente: <span className="font-normal text-gray-700">{h.cliente_nombre}</span>
-                                                </p>
-                                                {h.hora_reservacion && (
-                                                    <p className="text-xs text-gray-500 mt-0.5">
-                                                        Hora de reserva: <span className="font-medium text-gray-700">{h.hora_reservacion}</span>
-                                                    </p>
+                                                {h.estado !== 'LIMPIEZA_SEMANAL' && h.estado !== 'MANTENIMIENTO' && (
+                                                    <button
+                                                        onClick={() => cambiarEstadoOperativo(h.id, 'LIMPIEZA_SEMANAL')}
+                                                        className="py-1.5 px-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1 cursor-pointer border border-blue-200"
+                                                    >
+                                                        <CalendarCheck className="w-3.5 h-3.5" /> Limp. Semanal
+                                                    </button>
                                                 )}
                                             </div>
-                                        )}
-                                    </div>
-
-                                    <div className="mt-4 pt-2 border-t border-gray-100">
-                                        {isCofirmar === h.id ? (
-                                            <div className="bg-red-50 p-2.5 rounded-xl border border-red-200 flex flex-col gap-2">
-                                                <p className="text-xs text-red-700 font-medium text-center">¿Eliminar esta habitación?</p>
-                                                <div className="flex justify-center gap-2">
-                                                    <button onClick={() => setIsConfirmar(null)} className="px-3 py-1 bg-white border border-gray-300 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-50 cursor-pointer transition">No</button>
-                                                    <button onClick={() => eliminarHabitacion(h.id)} className="px-3 py-1 bg-red-600 text-white text-xs font-medium rounded-lg hover:bg-red-700 cursor-pointer transition">Sí, eliminar</button>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div className="flex justify-end">
-                                                <button onClick={() => setIsConfirmar(h.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer" title="Eliminar habitación">
-                                                    <Trash className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        )}
+                                        </div>
                                     </div>
                                 </div>
                             ))
@@ -405,6 +396,8 @@ export default function SupervisorDashboard() {
                                         <option value="LIBRE_SUCIA">Sucia</option>
                                         <option value="OCUPADA">Ocupada</option>
                                         <option value="RESERVADA">Reservada</option>
+                                        <option value="MANTENIMIENTO">Mantenimiento</option>
+                                        <option value="LIMPIEZA_SEMANAL">Limpieza Semanal</option>
                                     </select>
                                 </div>
 

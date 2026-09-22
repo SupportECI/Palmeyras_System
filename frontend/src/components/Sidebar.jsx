@@ -89,10 +89,10 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
                         </Link>
                     )}
 
-                    {rolUsuario === 'SUPERVISOR' && (
+                    {(rolUsuario === 'SUPERVISOR' || rolUsuario === 'RECEPCIONISTA') && (
                         <Link
-                            to="/dashboard/supervisor/cancelar-renta"
-                            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition font-medium text-sm ${location.pathname === '/dashboard/supervisor/cancelar-renta' ? 'bg-red-50 text-red-600' : 'text-gray-600 hover:bg-gray-100'}`}
+                            to="/dashboard/cancelar-renta"
+                            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition font-medium text-sm ${location.pathname === '/dashboard/cancelar-renta' ? 'bg-red-50 text-red-600' : 'text-gray-600 hover:bg-gray-100'}`}
                         >
                             <Ban className="w-5 h-5 shrink-0" />
                             {!isCollapsed && <span>Cancelar Renta</span>}

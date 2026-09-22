@@ -10,6 +10,7 @@ import RecamaristaDashboard from './components/RecamaristaDashboard';
 import AdminDashboard from './components/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import GestionUsuarios from './components/GestionUsuarios';
+import CancelarRenta from './components/CancelarRenta';
 
 function App() {
   return (
@@ -58,6 +59,8 @@ function App() {
             <GestionUsuarios />
           </ProtectedRoute>
         }/>
+
+        <Route path='/dashboard/cancelar-renta' element={<CancelarRenta />}/>
       </Routes>
     </BrowserRouter>
   )
