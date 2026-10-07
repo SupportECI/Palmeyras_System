@@ -1,21 +1,23 @@
 import { Navigate } from 'react-router-dom';
 
 export default function ProtectedRoute({ children, rolPermitido }) {
-    const usuarioGuardado = localStorage.getItem('usuario');
-
-    if (!usuarioGuardado) {
+    const usuarioString = localStorage.getItem('usuario');
+    
+    if (!usuarioString) {
         return <Navigate to="/" replace />;
     }
 
-    try {
-        const usuario = JSON.parse(usuarioGuardado);
+    const usuario = JSON.parse(usuarioString);
 
-        if (rolPermitido && usuario.rol !== rolPermitido) {
+    if (rolPermitido) {
+        if (Array.isArray(rolPermitido)) {
+            if (!rolPermitido.includes(usuario.rol)) {
+                return <Navigate to="/" replace />;
+            }
+        } 
+        else if (usuario.rol !== rolPermitido) {
             return <Navigate to="/" replace />;
         }
-    } catch (e) {
-        localStorage.removeItem('usuario');
-        return <Navigate to="/" replace />;
     }
 
     return children;

@@ -1,47 +1,135 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import api from "../services/api";
 import Sidebar from "./Sidebar";
-import { UserCheck, LogOut, Clock, XCircle } from 'lucide-react';
+import { UserCheck, LogOut, Clock, BedDouble, Sparkles, AlertCircle, Wrench, CalendarCheck, X } from 'lucide-react';
+import toast, { Toaster } from 'react-hot-toast';
 
-// Componente secundario para calcular y mostrar el cronómetro de las 4 horas de renta
-function CronometroRenta({ horaInicioReal }) {
-    const [tiempoRestante, setTiempoRestante] = useState("");
-    const [expirado, setExpirado] = useState(false);
+const DURACION_MS = 4 * 60 * 60 * 1000;
+const ALERTA_10_MIN_MS = 10 * 60 * 1000;
+const ALERTA_5_MIN_MS = 5 * 60 * 1000;
+const ALERTA_1_MIN_MS = 1 * 60 * 1000;
+
+const formatear = (ms) => {
+    const total = Math.floor(Math.abs(ms) / 1000);
+    const h = String(Math.floor(total / 3600)).padStart(2, '0');
+    const m = String(Math.floor((total % 3600) / 60)).padStart(2, '0');
+    const s = String(total % 60).padStart(2, '0');
+    return `${h}:${m}:${s}`;
+};
+
+const mostrarAlertaTiempo = (habitacion, minutos) => {
+    toast.custom((t) => (
+        <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-sm w-full bg-white shadow-2xl rounded-2xl pointer-events-auto flex border-l-4 border-rose-600 overflow-hidden`}>
+            <div className="flex-1 p-4">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center shrink-0">
+                        <Clock className="h-5 w-5 text-rose-600" />
+                    </div>
+                    <div>
+                        <p className="text-sm font-bold text-gray-900">Tiempo por agotarse</p>
+                        <p className="text-xs font-medium text-gray-600 mt-0.5">
+                            Hab. <span className="font-bold text-black">#{habitacion}</span>: {minutos === 1 ? '¡Último minuto de tolerancia!' : `Restan ${minutos} minutos.`}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div className="flex border-l border-gray-100">
+                <button
+                    onClick={() => toast.dismiss(t.id)}
+                    className="w-full px-4 flex items-center justify-center hover:bg-rose-50 transition cursor-pointer text-gray-400 hover:text-rose-600"
+                >
+                    <X className="h-5 w-5" />
+                </button>
+            </div>
+        </div>
+    ), { 
+        duration: Infinity, 
+        id: `alerta-${habitacion}-${minutos}` 
+    });
+};
+
+function CronometroRegresivo({ habitacionNum, inicioRentaMs, ahoraServidorMs }) {
+    const inicio = Number(inicioRentaMs);
+    const valido = Number.isFinite(inicio) && inicio > 0;
+    const finMs = inicio + DURACION_MS;
+
+    const offset = useMemo(
+        () => (ahoraServidorMs ? Number(ahoraServidorMs) - Date.now() : 0),
+        [ahoraServidorMs]
+    );
+
+    const [diferencia, setDiferencia] = useState(null);
+    const toast10Disparado = useRef(false);
+    const toast5Disparado = useRef(false);
+    const toast1Disparado = useRef(false);
 
     useEffect(() => {
-        if (!horaInicioReal) return;
+        if (!valido) return;
 
-        const calcularTiempo = () => {
-            const [h, m, s] = horaInicioReal.split(':').map(Number);
-            const inicio = new Date();
-            inicio.setHours(h, m, s || 0);
+        const calcular = () => {
+            const restante = finMs - (Date.now() + offset);
+            setDiferencia(restante);
 
-            // 4 horas exactas de duración
-            const fin = new Date(inicio.getTime() + 4 * 60 * 60 * 1000);
-            const ahora = new Date();
+            if (restante > 0 && restante <= ALERTA_10_MIN_MS && restante > ALERTA_5_MIN_MS && !toast10Disparado.current) {
+                toast10Disparado.current = true;
+                mostrarAlertaTiempo(habitacionNum, 10);
+            }
 
-            const diferencia = fin - ahora;
+            if (restante > 0 && restante <= ALERTA_5_MIN_MS && restante > ALERTA_1_MIN_MS && !toast5Disparado.current) {
+                toast5Disparado.current = true;
+                mostrarAlertaTiempo(habitacionNum, 5);
+            }
 
-            if (diferencia <= 0) {
-                setExpirado(true);
-                setTiempoRestante("¡TIEMPO TERMINADO!");
-            } else {
-                const horas = Math.floor((diferencia / (1000 * 60 * 60)) % 24);
-                const minutos = Math.floor((diferencia / 1000 / 60) % 60);
-                const segundos = Math.floor((diferencia / 1000) % 60);
-                setTiempoRestante(`${horas}h ${minutos}m ${segundos}s`);
+            if (restante > 0 && restante <= ALERTA_1_MIN_MS && !toast1Disparado.current) {
+                toast1Disparado.current = true;
+                mostrarAlertaTiempo(habitacionNum, 1);
             }
         };
 
-        calcularTiempo();
-        const intervalo = setInterval(calcularTiempo, 1000);
+        calcular(); 
+        const intervalo = setInterval(calcular, 1000);
+
         return () => clearInterval(intervalo);
-    }, [horaInicioReal]);
+    }, [finMs, offset, valido, habitacionNum]);
+
+    if (!valido || diferencia === null) {
+        return (
+            <div className="mt-3 flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-bold text-gray-500">
+                <Clock className="h-4 w-4 shrink-0" />
+                <span className="truncate">--:--:-- (sin hora de inicio)</span>
+            </div>
+        );
+    }
+
+    const expirado = diferencia <= 0;
+    const porAgotarse = !expirado && diferencia <= ALERTA_10_MIN_MS;
+
+    const estilo = expirado
+        ? 'border-red-300 bg-red-50 text-red-700 animate-pulse'
+        : porAgotarse
+            ? 'border-amber-300 bg-amber-50 text-amber-700'
+            : 'border-blue-200 bg-blue-50 text-blue-700';
+
+    const horaSalida = new Date(finMs).toLocaleTimeString('es-MX', {
+        hour: '2-digit',
+        minute: '2-digit',
+    });
 
     return (
-        <div className={`mt-2 p-2 rounded-xl text-xs font-bold flex items-center justify-between ${expirado ? 'bg-red-100 text-red-700 border border-red-300 animate-pulse' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
-            <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> Tiempo:</span>
-            <span>{tiempoRestante}</span>
+        <div className={`mt-3 rounded-xl border px-3 py-2 ${estilo}`}>
+            <div className="flex items-center gap-1.5 text-sm font-bold tabular-nums">
+                {expirado || porAgotarse
+                    ? <AlertCircle className="h-4 w-4 shrink-0" />
+                    : <Clock className="h-4 w-4 shrink-0" />}
+                <span className="truncate">
+                    {expirado
+                        ? `Excedido +${formatear(diferencia)}`
+                        : `Restan ${formatear(diferencia)}`}
+                </span>
+            </div>
+            <p className="mt-0.5 text-[11px] font-medium opacity-80">
+                Sale a las {horaSalida} hrs
+            </p>
         </div>
     );
 }
@@ -50,23 +138,18 @@ export default function RecepcionDashboard() {
     const [nombreUsuario, setNombreUsuario] = useState('');
     const [habitaciones, setHabitaciones] = useState([]);
     const [isCollapsed, setIsCollapsed] = useState(false);
+    
+    // Este estado actualizará los botones cada segundo para que se habiliten exactos
+    const [ahoraLocal, setAhoraLocal] = useState(Date.now());
 
-    // Estado para el modal de Check-in
+    // Estados para Check-in y Renovación
     const [modalCheckinOpen, setModalCheckinOpen] = useState(false);
+    const [modalRenovarOpen, setModalRenovarOpen] = useState(false);
     const [habitacionSeleccionada, setHabitacionSeleccionada] = useState(null);
-    const [nombreCliente, setNombreCliente] = useState('');
-    const [direccion, setDireccion] = useState('');
-    const [celular, setCelular] = useState('');
     const [precioCobrado, setPrecioCobrado] = useState('');
 
-    // Estados adicionales para manejar si es check-in normal o de reserva existente
-    const [esReservacion, setEsReservacion] = useState(false);
-    const [rentaIdActual, setRentaIdActual] = useState(null);
-
-    // Estados para el modal local de cancelación rápida desde la tarjeta
-    const [modalCancelarOpen, setModalCancelarOpen] = useState(false);
-    const [rentaACancelarId, setRentaACancelarId] = useState(null);
-    const [motivoCancelacion, setMotivoCancelacion] = useState('');
+    const [modalCheckoutOpen, setModalCheckoutOpen] = useState(false);
+    const [habitacionCheckoutId, setHabitacionCheckoutId] = useState(null);
 
     useEffect(() => {
         const usuarioGuardado = localStorage.getItem('usuario');
@@ -74,286 +157,327 @@ export default function RecepcionDashboard() {
             const datos = JSON.parse(usuarioGuardado);
             setNombreUsuario(datos.nombre || datos.correo);
         }
-        cargarDatosRecepcion();
+        
+        cargarHabitaciones();
+        
+        // Petición a la base de datos cada 10 segundos
+        const interval = setInterval(cargarHabitaciones, 10000); 
+        
+        // Reloj interno rápido (1 seg) para habilitar/deshabilitar botones en vivo
+        const reloj = setInterval(() => setAhoraLocal(Date.now()), 1000);
 
-        // Actualizar datos cada minuto para reflejar el bloqueo de las 2 horas automáticamente
-        const interval = setInterval(cargarDatosRecepcion, 60000);
-        return () => clearInterval(interval);
+        return () => {
+            clearInterval(interval);
+            clearInterval(reloj);
+        };
     }, []);
 
-    const cargarDatosRecepcion = async () => {
+    const cargarHabitaciones = async () => {
         try {
-            const resHab = await api.get('/habitaciones');
-            setHabitaciones(resHab.data.habitaciones);
+            const res = await api.get('/habitaciones');
+            setHabitaciones(res.data.habitaciones);
         } catch (error) {
             console.error('Error al cargar habitaciones', error);
         }
     };
 
-    // Realizar Check-in (Distingue entre Walk-in nuevo o Activación de Reservación existente)
+    const imprimirTicket = (habitacion, precio, esRenovacion = false) => {
+        const fechaActual = new Date().toLocaleString('es-MX', {
+            dateStyle: 'short',
+            timeStyle: 'medium'
+        });
+
+        const horaSalidaEstimada = new Date(Date.now() + 4 * 60 * 60 * 1000).toLocaleTimeString('es-MX', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+
+        const titulo = esRenovacion ? "RENOVACIÓN DE ESTANCIA" : "COMPROBANTE DE ESTANCIA";
+
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        document.body.appendChild(iframe);
+        const documentoIframe = iframe.contentWindow.document;
+        
+        documentoIframe.write(`
+            <html>
+                <head>
+                    <title>Ticket</title>
+                    <style>
+                        @page { size: 58mm auto; margin: 0; }
+                        body { font-family: 'Courier New', Courier, monospace; font-size: 10px; color: #000; width: 48mm; margin: 0 auto; padding: 2mm; text-align: center; }
+                        h3 { margin: 2px 0; font-size: 13px; font-weight: bold; }
+                        p { margin: 3px 0; }
+                        .left { text-align: left; }
+                        .divider { border-top: 1px dashed #000; margin: 5px 0; }
+                        .bold { font-weight: bold; }
+                        .big { font-size: 12px; }
+                        .footer { font-size: 8px; margin-top: 8px; }
+                    </style>
+                </head>
+                <body>
+                    <h3>HOTEL / MOTEL</h3>
+                    <p>${titulo}</p>
+                    <div class="divider"></div>
+                    <p class="bold big">HABITACIÓN #${habitacion.num_habitacion}</p>
+                    <p>Tipo: ${habitacion.tipo}</p>
+                    <div class="divider"></div>
+                    <div class="left">
+                        <p>Tarifa: <span class="bold">4 Horas Fijas</span></p>
+                        <p>Hora Inicio: ${fechaActual}</p>
+                        <p>Vence a las: <span class="bold">${horaSalidaEstimada} hrs</span></p>
+                    </div>
+                    <div class="divider"></div>
+                    <p class="bold big">TOTAL: $${Number(precio).toFixed(2)}</p>
+                    <div class="divider"></div>
+                    <p class="footer">¡GRACIAS POR SU PREFERENCIA!<br>Conserve este ticket.</p>
+                </body>
+            </html>
+        `);
+        
+        documentoIframe.close();
+        setTimeout(() => {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+            setTimeout(() => document.body.removeChild(iframe), 1000);
+        }, 300);
+    };
+
     const handleCheckinSubmit = async (e) => {
         e.preventDefault();
         try {
-            const usuarioGuardado = JSON.parse(localStorage.getItem('usuario'));
-            const usuarioId = usuarioGuardado ? usuarioGuardado.id : null;
-
-            if (esReservacion) {
-                // CASO A: Activar reservación existente utilizando su renta_id
-                await api.put(`/reservaciones/${rentaIdActual}/activar`, {
-                    usuario_recepcion_id: usuarioId,
-                    precio_cobrado: precioCobrado
-                });
-            } else {
-                // CASO B: Cliente nuevo de paso (Walk-in)
-                const ahora = new Date();
-                const fechaHoy = ahora.toISOString().split('T')[0];
-                const horaActual = ahora.toTimeString().substring(0, 5);
-
-                await api.post('/reservaciones', {
-                    habitacion_id: habitacionSeleccionada.id,
-                    nombre_completo: nombreCliente,
-                    direccion: direccion,
-                    celular: celular,
-                    precio_cobrado: precioCobrado,
-                    fecha_reservacion: fechaHoy,
-                    hora_reservacion: horaActual,
-                    usuario_recepcion_id: usuarioId
-                });
-            }
-
-            // Cambiar estado formalmente a OCUPADA
-            await api.put(`/habitaciones/${habitacionSeleccionada.id}/estado`, {
-                estado: 'OCUPADA',
-                rol_usuario: 'RECEPCION'
+            await api.post('/rentas/check-in', {
+                habitacion_id: habitacionSeleccionada.id,
+                precio_cobrado: precioCobrado
             });
+
+            imprimirTicket(habitacionSeleccionada, precioCobrado, false);
+            toast.success("Check-in registrado con éxito");
 
             setModalCheckinOpen(false);
-            limpiarFormularioCheckin();
-            cargarDatosRecepcion();
+            setHabitacionSeleccionada(null);
+            setPrecioCobrado('');
+            cargarHabitaciones();
         } catch (error) {
             console.error('Error al hacer Check-in', error);
-            alert(error.response?.data?.message || 'No se pudo completar el Check-in');
+            toast.error(error.response?.data?.message || 'No se pudo completar el Check-in');
         }
     };
 
-    // Realizar Check-out (Pasa de OCUPADA a LIBRE_SUCIA)
-    const handleCheckout = async (idHabitacion) => {
-        if (!window.confirm('¿Desea realizar el Check-out de esta habitación? El tiempo ha concluido y pasará a estado Sucia.')) return;
+    const handleRenovarSubmit = async (e) => {
+        e.preventDefault();
         try {
-            await api.put(`/habitaciones/${idHabitacion}/estado`, {
-                estado: 'LIBRE_SUCIA',
-                rol_usuario: 'RECEPCION'
+            await api.post('/rentas/renovar', {
+                habitacion_id: habitacionSeleccionada.id,
+                precio_cobrado: precioCobrado
             });
-            cargarDatosRecepcion();
+
+            imprimirTicket(habitacionSeleccionada, precioCobrado, true);
+            toast.success("Tiempo renovado con éxito. Cronómetro reiniciado.");
+
+            setModalRenovarOpen(false);
+            setHabitacionSeleccionada(null);
+            setPrecioCobrado('');
+            cargarHabitaciones();
+        } catch (error) {
+            console.error('Error al renovar', error);
+            toast.error('No se pudo renovar la estancia');
+        }
+    };
+
+    const abrirModalCheckout = (idHabitacion) => {
+        setHabitacionCheckoutId(idHabitacion);
+        setModalCheckoutOpen(true);
+    };
+
+    const confirmarCheckout = async () => {
+        if (!habitacionCheckoutId) return;
+        try {
+            await api.put(`/habitaciones/${habitacionCheckoutId}/checkout`);
+            toast.success("Check-out realizado correctamente");
+            setModalCheckoutOpen(false);
+            setHabitacionCheckoutId(null);
+            cargarHabitaciones();
         } catch (error) {
             console.error('Error al hacer Check-out', error);
-            alert('No se pudo procesar el Check-out');
+            setModalCheckoutOpen(false);
+            toast.error('No se pudo procesar el Check-out de la habitación');
         }
-    };
-
-    // Cancelación rápida desde la tarjeta de la habitación reservada
-    const abrirModalCancelar = (habitacion) => {
-        if (!habitacion.renta_id) {
-            alert('No se encontró una renta asociada a esta habitación para cancelar.');
-            return;
-        }
-        setRentaACancelarId(habitacion.renta_id);
-        setMotivoCancelacion('');
-        setModalCancelarOpen(true);
-    };
-
-    const handleCancelarRentaSubmit = async (e) => {
-        e.preventDefault();
-        if (!motivoCancelacion.trim()) {
-            alert('Debe especificar un motivo de cancelación.');
-            return;
-        }
-
-        try {
-            const usuarioGuardado = JSON.parse(localStorage.getItem('usuario'));
-            const usuarioId = usuarioGuardado ? usuarioGuardado.id : null;
-
-            await api.put(`/reservas/cancelar/${rentaACancelarId}`, {
-                motivo_cancelacion: motivoCancelacion,
-                usuario_cancela_id: usuarioId
-            });
-
-            setModalCancelarOpen(false);
-            setRentaACancelarId(null);
-            setMotivoCancelacion('');
-            alert('Reservación cancelada correctamente.');
-            cargarDatosRecepcion();
-        } catch (error) {
-            console.error('Error al cancelar reservación', error);
-            alert(error.response?.data?.message || 'No se pudo cancelar la reservación');
-        }
-    };
-
-    const limpiarFormularioCheckin = () => {
-        setHabitacionSeleccionada(null);
-        setNombreCliente('');
-        setDireccion('');
-        setCelular('');
-        setPrecioCobrado('');
-        setEsReservacion(false);
-        setRentaIdActual(null);
     };
 
     return (
-        <div className="min-h-screen bg-gray-100 flex">
+        <div className="min-h-screen bg-gray-100 flex font-sans overflow-x-hidden">
+            <Toaster position="bottom-right" reverseOrder={false} toastOptions={{ duration: 5000 }} />
+
             <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} rol="recepcion" />
 
-            <div className={`flex-1 ${isCollapsed ? 'ml-20' : 'ml-64'} flex flex-col min-w-0 transition-all duration-300`}>
-                <header className="bg-white text-black flex items-center justify-between h-16 px-6 border-b border-gray-200">
-                    <h1 className="text-lg font-semibold text-gray-800">Panel de Recepción</h1>
-                    <span className="text-sm text-gray-600">Bienvenido, {nombreUsuario || "Recepcionista"}</span>
+            <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${isCollapsed ? 'ml-20' : 'ml-64'}`}>
+                
+                <header className="bg-white text-black flex items-center justify-between h-16 px-6 border-b border-gray-200 shadow-sm sticky top-0 z-20">
+                    <h1 className="text-base sm:text-lg font-semibold text-gray-800 truncate">
+                        Panel de Recepción <span className="text-sm font-normal text-gray-500 hidden sm:inline">- Control de Estancias (4 Horas)</span>
+                    </h1>
+                    <span className="text-sm font-medium text-gray-600 truncate ml-2">
+                        {nombreUsuario || "Recepcionista"}
+                    </span>
                 </header>
 
-                <div className="p-6 flex flex-col gap-8">
-                    <div>
-                        <div className="mb-4 flex justify-between items-center">
-                            <h3 className="text-xl font-bold text-gray-800">Control y Estado de Habitaciones</h3>
-                            <p className="text-xs text-gray-500">* Las habitaciones se bloquean a reservadas 2 horas antes de su hora programada.</p>
-                        </div>
+                <div className="p-6 sm:p-8 flex flex-col gap-6">
+                    <div className="flex justify-between items-center">
+                        <h3 className="text-xl font-bold text-gray-800">Listado de Habitaciones</h3>
+                    </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                            {habitaciones.map((h) => (
-                                <div key={h.id} className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-between">
-                                    <div>
-                                        <div className="flex justify-between items-center mb-3">
-                                            <span className="font-bold text-lg text-gray-800">Hab. {h.num_habitacion}</span>
-                                            <span className={`px-3 py-1 text-xs font-semibold rounded-lg border ${
-                                                h.estado === 'LIBRE_LIMPIA' ? 'bg-green-100 text-green-700 border-green-300' :
-                                                h.estado === 'LIBRE_SUCIA' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
-                                                h.estado === 'OCUPADA' ? 'bg-red-100 text-red-700 border-red-300' :
-                                                'bg-blue-100 text-blue-700 border-blue-300'
-                                            }`}>
-                                                {h.estado === 'LIBRE_LIMPIA' ? 'Limpia' : h.estado === 'LIBRE_SUCIA' ? 'Sucia' : h.estado === 'OCUPADA' ? 'Ocupada' : 'Reservada'}
-                                            </span>
-                                        </div>
-                                        <p className="text-sm text-gray-600">Tipo: <span className="font-medium text-gray-800">{h.tipo}</span></p>
-                                        <p className="text-sm text-gray-600 mb-2">Precio: <span className="font-medium text-gray-800">${h.precio_base}</span></p>
-
-                                        {/* Información del cliente y horario programado */}
-                                        {h.cliente_nombre && (
-                                            <div className="mt-2 pt-2 border-t border-gray-100 text-xs">
-                                                <p className="text-gray-700 font-semibold">Cliente: {h.cliente_nombre}</p>
-                                                {h.hora_reservacion && <p className="text-gray-500">Reserva a las: {h.hora_reservacion}</p>}
-                                            </div>
-                                        )}
-
-                                        {/* Cronómetro si está ocupada */}
-                                        {h.estado === 'OCUPADA' && h.hora_inicio_real && (
-                                            <CronometroRenta horaInicioReal={h.hora_inicio_real} />
-                                        )}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {habitaciones.map((h) => (
+                            <div key={h.id} className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-between hover:shadow-md transition">
+                                <div>
+                                    <div className="flex justify-between items-center mb-3">
+                                        <span className="font-bold text-lg text-gray-800 flex items-center gap-1.5">
+                                            <BedDouble className="w-5 h-5 text-blue-600 shrink-0" /> Hab. {h.num_habitacion}
+                                        </span>
+                                        <span className={`px-3 py-1 text-xs font-semibold rounded-lg border ${
+                                            h.estado === 'LIBRE_LIMPIA' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                            h.estado === 'LIBRE_SUCIA' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                            h.estado === 'MANTENIMIENTO' ? 'bg-red-50 text-red-700 border-red-200' :
+                                            h.estado === 'LIMPIEZA_SEMANAL' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                            'bg-rose-50 text-rose-700 border-rose-200'
+                                        }`}>
+                                            {h.estado === 'LIBRE_LIMPIA' ? 'Vacia Limpia' : 
+                                             h.estado === 'LIBRE_SUCIA' ? 'Vacia Sucia' : 
+                                             h.estado === 'MANTENIMIENTO' ? 'Mantenimiento' : 
+                                             h.estado === 'LIMPIEZA_SEMANAL' ? 'Limpieza Semanal' : 
+                                             'Ocupada'}
+                                        </span>
                                     </div>
+                                    <p className="text-sm text-gray-600">Tipo: <span className="font-medium text-gray-800">{h.tipo}</span></p>
+                                    <p className="text-sm text-gray-600 mb-2">Precio Base: <span className="font-medium text-gray-800">${h.precio_base}</span></p>
 
-                                    {/* Botones de Acción / Interacción según el estado */}
-                                    <div className="mt-4 pt-3 border-t border-gray-100 flex flex-col gap-2">
-                                        {h.estado === 'LIBRE_LIMPIA' && (
-                                            <button
-                                                onClick={() => { 
-                                                    setHabitacionSeleccionada(h); 
-                                                    setPrecioCobrado(h.precio_base); 
-                                                    setEsReservacion(false);
-                                                    setModalCheckinOpen(true); 
-                                                }}
-                                                className="w-full py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 transition flex items-center justify-center gap-1 cursor-pointer shadow-sm"
-                                            >
-                                                <UserCheck className="w-4 h-4" /> Check-in
-                                            </button>
-                                        )}
-
-                                        {/* Check-in y Cancelación para habitación bloqueada por reservación */}
-                                        {h.estado === 'RESERVADA' && (
-                                            <>
-                                                <button
-                                                    onClick={() => { 
-                                                        setHabitacionSeleccionada(h); 
-                                                        setPrecioCobrado(h.precio_base); 
-                                                        setNombreCliente(h.cliente_nombre || '');
-                                                        setCelular(h.celular || '');
-                                                        setRentaIdActual(h.renta_id);
-                                                        setEsReservacion(true);
-                                                        setModalCheckinOpen(true); 
-                                                    }}
-                                                    className="w-full py-2 bg-amber-600 text-white rounded-xl text-xs font-semibold hover:bg-amber-700 transition flex items-center justify-center gap-1 cursor-pointer shadow-sm"
-                                                    title="El cliente de la reservación ha llegado"
-                                                >
-                                                    <UserCheck className="w-4 h-4" /> Check-in (Reservación)
-                                                </button>
-                                                <button
-                                                    onClick={() => abrirModalCancelar(h)}
-                                                    className="w-full py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-xl text-xs font-semibold hover:bg-red-100 transition flex items-center justify-center gap-1 cursor-pointer"
-                                                >
-                                                    <XCircle className="w-3.5 h-3.5" /> Cancelar Reservación
-                                                </button>
-                                            </>
-                                        )}
-
-                                        {h.estado === 'OCUPADA' && (
-                                            <button
-                                                onClick={() => handleCheckout(h.id)}
-                                                className="w-full py-2 bg-orange-600 text-white rounded-xl text-xs font-semibold hover:bg-orange-700 transition flex items-center justify-center gap-1 cursor-pointer shadow-sm"
-                                            >
-                                                <LogOut className="w-4 h-4" /> Realizar Check-out
-                                            </button>
-                                        )}
-
-                                        {h.estado === 'LIBRE_SUCIA' && (
-                                            <span className="w-full text-center text-xs text-purple-600 font-semibold py-1">Pendiente de limpieza</span>
-                                        )}
-                                    </div>
+                                    {h.estado === 'OCUPADA' && (
+                                        <CronometroRegresivo
+                                            habitacionNum={h.num_habitacion}
+                                            inicioRentaMs={
+                                                h.inicio_renta_ms ||
+                                                (h.created_at ? new Date(h.created_at).getTime() : null)
+                                            }
+                                            ahoraServidorMs={h.ahora_servidor_ms}
+                                        />
+                                    )}
                                 </div>
-                            ))}
-                        </div>
+
+                                <div className="mt-4 pt-3 border-t border-gray-100 flex flex-col sm:flex-row gap-2">
+                                    {h.estado === 'LIBRE_LIMPIA' && (
+                                        <button
+                                            onClick={() => {
+                                                setHabitacionSeleccionada(h);
+                                                setPrecioCobrado(h.precio_base);
+                                                setModalCheckinOpen(true);
+                                            }}
+                                            className="w-full py-2.5 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                                        >
+                                            <UserCheck className="w-4 h-4 shrink-0" /> Registrar Check-in (4 hrs)
+                                        </button>
+                                    )}
+
+                                    {h.estado === 'LIBRE_SUCIA' && (
+                                        <div className="w-full py-2.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm">
+                                            <Sparkles className="w-4 h-4 text-amber-600 shrink-0" /> En Limpieza
+                                        </div>
+                                    )}
+
+                                    {h.estado === 'MANTENIMIENTO' && (
+                                        <div className="w-full py-2.5 bg-red-50 border border-red-200 text-red-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm">
+                                            <Wrench className="w-4 h-4 text-red-600 shrink-0" /> En Mantenimiento
+                                        </div>
+                                    )}
+
+                                    {h.estado === 'LIMPIEZA_SEMANAL' && (
+                                        <div className="w-full py-2.5 bg-blue-50 border border-blue-200 text-blue-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm">
+                                            <CalendarCheck className="w-4 h-4 text-blue-600 shrink-0" /> Limpieza Semanal
+                                        </div>
+                                    )}
+
+                                    {h.estado === 'OCUPADA' && (
+                                        <div className="flex gap-2 w-full">
+                                            
+                                            {/* EVALUACIÓN DE BOTÓN RENOVAR */}
+                                            {(() => {
+                                                const inicioRenta = Number(h.inicio_renta_ms || (h.created_at ? new Date(h.created_at).getTime() : 0));
+                                                const finMs = inicioRenta + DURACION_MS;
+                                                const offset = h.ahora_servidor_ms ? Number(h.ahora_servidor_ms) - Date.now() : 0;
+                                                const restante = finMs - (ahoraLocal + offset);
+                                                
+                                                // Si el restante es <= 0, el tiempo ya se excedió y permitimos renovar
+                                                const estaExpirado = restante <= 0;
+
+                                                return (
+                                                    <button
+                                                        disabled={!estaExpirado}
+                                                        onClick={() => {
+                                                            setHabitacionSeleccionada(h);
+                                                            setPrecioCobrado(h.precio_base);
+                                                            setModalRenovarOpen(true);
+                                                        }}
+                                                        className={`flex-1 py-2.5 border rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1 shadow-sm ${
+                                                            estaExpirado 
+                                                                ? 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100 cursor-pointer' 
+                                                                : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed opacity-75'
+                                                        }`}
+                                                        title={!estaExpirado ? "Disponible cuando finalice el tiempo" : "Renovar renta extra"}
+                                                    >
+                                                        <Clock className="w-4 h-4 shrink-0" /> Renovar
+                                                    </button>
+                                                );
+                                            })()}
+                                            
+                                            <button
+                                                onClick={() => abrirModalCheckout(h.id)}
+                                                className="flex-1 py-2.5 bg-rose-600 text-white rounded-xl text-xs font-semibold hover:bg-rose-700 transition flex items-center justify-center gap-1 cursor-pointer shadow-sm"
+                                            >
+                                                <LogOut className="w-4 h-4 shrink-0" /> Check-out
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
 
-                {/* MODAL PARA REALIZAR CHECK-IN */}
+                {/* MODAL EXPRESS DE CHECK-IN */}
                 {modalCheckinOpen && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                        <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
-                            <h2 className="text-lg font-bold text-gray-900 mb-1">Check-in - Habitación #{habitacionSeleccionada?.num_habitacion}</h2>
+                    <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-xl">
+                            <h2 className="text-lg font-bold text-gray-900 mb-1">Check-in Exprés</h2>
                             <p className="text-xs text-gray-500 mb-4">
-                                {esReservacion ? 'Confirme la entrada del cliente registrado en la agenda.' : 'Inicia la renta por 4 horas ingresando los datos del cliente.'}
+                                Habitación #{habitacionSeleccionada?.num_habitacion} ({habitacionSeleccionada?.tipo}). Estancia fija de 4 horas.
                             </p>
 
-                            <form onSubmit={handleCheckinSubmit} className="flex flex-col gap-3">
+                            <form onSubmit={handleCheckinSubmit} className="flex flex-col gap-4">
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Nombre Completo</label>
-                                    <input 
-                                        type="text" 
-                                        value={nombreCliente} 
-                                        onChange={(e) => setNombreCliente(e.target.value)} 
-                                        disabled={esReservacion}
-                                        className={`w-full border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none ${esReservacion ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : 'focus:border-blue-500'}`} 
-                                        required 
+                                    <label className="block text-xs font-bold text-gray-700 mb-1">Precio a Cobrar ($)</label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        value={precioCobrado}
+                                        onChange={(e) => setPrecioCobrado(e.target.value)}
+                                        className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm font-bold text-blue-700 outline-none focus:border-blue-600"
+                                        required
                                     />
                                 </div>
 
-                                {!esReservacion && (
-                                    <>
-                                        <div>
-                                            <label className="block text-xs font-semibold text-gray-700 mb-1">Dirección</label>
-                                            <input type="text" value={direccion} onChange={(e) => setDireccion(e.target.value)} className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500" required />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-semibold text-gray-700 mb-1">Celular</label>
-                                            <input type="text" value={celular} onChange={(e) => setCelular(e.target.value)} className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500" required />
-                                        </div>
-                                    </>
-                                )}
-
-                                <div>
-                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Precio Cobrado ($)</label>
-                                    <input type="number" value={precioCobrado} onChange={(e) => setPrecioCobrado(e.target.value)} className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500" required />
-                                </div>
-
-                                <div className="flex justify-end gap-2 mt-4">
-                                    <button type="button" onClick={() => setModalCheckinOpen(false)} className="px-4 py-2 border border-gray-300 rounded-xl text-xs font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer">Cancelar</button>
-                                    <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 cursor-pointer">
-                                        {esReservacion ? 'Confirmar y Activar Renta' : 'Iniciar Renta (4 hrs)'}
+                                <div className="flex justify-end gap-2 mt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setModalCheckinOpen(false)}
+                                        className="px-4 py-2 border border-gray-300 rounded-xl text-xs font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 cursor-pointer shadow-sm"
+                                    >
+                                        Iniciar Renta (4 hrs)
                                     </button>
                                 </div>
                             </form>
@@ -361,42 +485,78 @@ export default function RecepcionDashboard() {
                     </div>
                 )}
 
-                {/* MODAL PARA CANCELAR RESERVACIÓN */}
-                {modalCancelarOpen && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                        <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
-                            <h2 className="text-lg font-bold text-gray-900 mb-1">Cancelar Reservación</h2>
-                            <p className="text-xs text-gray-500 mb-4">Por motivos de auditoría, es obligatorio registrar la razón por la cual se cancela esta reservación.</p>
+                {/* MODAL EXPRESS DE RENOVACIÓN */}
+                {modalRenovarOpen && (
+                    <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-xl">
+                            <div className="flex items-center gap-2 mb-1">
+                                <Clock className="w-5 h-5 text-indigo-600" />
+                                <h2 className="text-lg font-bold text-gray-900">Renovar Tiempo</h2>
+                            </div>
+                            <p className="text-xs text-gray-500 mb-4">
+                                Agregar otras 4 horas a la Habitación #{habitacionSeleccionada?.num_habitacion}. El cronómetro se reiniciará.
+                            </p>
 
-                            <form onSubmit={handleCancelarRentaSubmit} className="flex flex-col gap-3">
+                            <form onSubmit={handleRenovarSubmit} className="flex flex-col gap-4">
                                 <div>
-                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Motivo de Cancelación *</label>
-                                    <textarea 
-                                        value={motivoCancelacion} 
-                                        onChange={(e) => setMotivoCancelacion(e.target.value)} 
-                                        rows="3"
-                                        placeholder="Ej. El cliente no se presentó a la hora acordada..."
-                                        className="w-full border border-gray-300 rounded-xl p-3 text-xs outline-none focus:border-red-500 resize-none" 
-                                        required 
+                                    <label className="block text-xs font-bold text-gray-700 mb-1">Precio de Renovación ($)</label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        value={precioCobrado}
+                                        onChange={(e) => setPrecioCobrado(e.target.value)}
+                                        className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm font-bold text-indigo-700 outline-none focus:border-indigo-600"
+                                        required
                                     />
                                 </div>
 
-                                <div className="flex justify-end gap-2 mt-4">
-                                    <button 
-                                        type="button" 
-                                        onClick={() => setModalCancelarOpen(false)} 
+                                <div className="flex justify-end gap-2 mt-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setModalRenovarOpen(false)}
                                         className="px-4 py-2 border border-gray-300 rounded-xl text-xs font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer"
                                     >
-                                        Volver
+                                        Cancelar
                                     </button>
-                                    <button 
-                                        type="submit" 
-                                        className="px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-semibold hover:bg-red-700 cursor-pointer shadow-sm"
+                                    <button
+                                        type="submit"
+                                        className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700 cursor-pointer shadow-sm"
                                     >
-                                        Confirmar Cancelación
+                                        Cobrar y Renovar
                                     </button>
                                 </div>
                             </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* MODAL DE CHECK-OUT */}
+                {modalCheckoutOpen && (
+                    <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-gray-100 flex flex-col items-center text-center">
+                            <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mb-3">
+                                <LogOut className="w-6 h-6" />
+                            </div>
+                            <h3 className="text-base font-bold text-gray-900 mb-1">Confirmar Check-out</h3>
+                            <p className="text-xs text-gray-500 mb-6">
+                                ¿Desea realizar el Check-out? La habitación pasará automáticamente a estado <span className="font-semibold text-gray-800">Sucia</span>.
+                            </p>
+                            <div className="flex gap-2.5 w-full">
+                                <button
+                                    type="button"
+                                    onClick={() => setModalCheckoutOpen(false)}
+                                    className="flex-1 py-2.5 border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-50 transition cursor-pointer"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={confirmarCheckout}
+                                    className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold transition shadow-sm cursor-pointer"
+                                >
+                                    Sí, Check-out
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}

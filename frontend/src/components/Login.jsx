@@ -21,7 +21,7 @@ export default function Login() {
         try {
             const response = await api.post('/login', {
                 correo: correo,
-                password_hash: password
+                password: password
             });
 
             const { usuario } = response.data;

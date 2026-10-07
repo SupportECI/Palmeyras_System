@@ -11,6 +11,9 @@ import AdminDashboard from './components/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import GestionUsuarios from './components/GestionUsuarios';
 import CancelarRenta from './components/CancelarRenta';
+import RecepcionReportes from './components/RecepcionReportes';
+import AdminReportes from './components/AdminReportes';
+import AuditoriaLimpiezas from './components/AuditoriaLimpieza';
 
 function App() {
   return (
@@ -27,6 +30,19 @@ function App() {
           <ProtectedRoute rolPermitido='SUPERVISOR'>
             <SupervisorReportes />
           </ProtectedRoute>} />
+
+          <Route path='/dashboard/administrador/reportes' element={
+          <ProtectedRoute rolPermitido='ADMINISTRADOR'>
+            <AdminReportes />
+          </ProtectedRoute>} />
+
+        <Route path='/dashboard/auditoria-limpiezas' element={
+          <ProtectedRoute rolPermitido={['ADMINISTRADOR', 'SUPERVISOR']}>
+            <AuditoriaLimpiezas />
+          </ProtectedRoute>
+        }/>
+
+        <Route path='/dashboard/recepcionista/reportes'element={<RecepcionReportes />}/>
 
         <Route path='/dashboard/reservaciones/nueva' element={
           <ProtectedRoute>

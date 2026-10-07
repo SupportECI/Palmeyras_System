@@ -5,7 +5,9 @@ import {
     Plus,
     Wrench,
     CalendarCheck,
-    DoorOpen
+    DoorOpen,
+    BrushCleaning,
+    X
 } from 'lucide-react';
 
 export default function SupervisorDashboard() {
@@ -33,10 +35,17 @@ export default function SupervisorDashboard() {
     const [precioBase, setPrecioBase] = useState('');
     const [estadoHabitacion, setEstadoHabitacion] = useState('LIBRE_LIMPIA');
 
-    /* estado para modal de agregar habitacion */
+    /* Estado para modal de agregar habitación */
     const [isOpen, setIsOpen] = useState(false);
 
-    /* estados para filtrar busquedas */
+    /* Estado para el modal estilizado de confirmación operativa */
+    const [modalOperativo, setModalOperativo] = useState({
+        isOpen: false,
+        habitacion: null,
+        nuevoEstado: ''
+    });
+
+    /* Estados para filtrar búsquedas */
     const [busqueda, setBusqueda] = useState('');
     const [filtroEstado, setFiltroEstado] = useState('TODOS');
 
@@ -99,20 +108,27 @@ export default function SupervisorDashboard() {
         return () => clearInterval(intervalo);
     }, []);
 
-    // Función para que el supervisor ordene Limpieza Semanal o Mantenimiento
-    const cambiarEstadoOperativo = async (idHabitacion, nuevoEstado) => {
-        const mensaje = nuevoEstado === 'MANTENIMIENTO' 
-            ? '¿Desea bloquear esta habitación por Mantenimiento?'
-            : '¿Desea programar la Limpieza Semanal para esta habitación?';
-            
-        if (!window.confirm(mensaje)) return;
+    // Abre el modal estilizado
+    const abrirModalOperativo = (habitacion, nuevoEstado) => {
+        setModalOperativo({
+            isOpen: true,
+            habitacion,
+            nuevoEstado
+        });
+    };
+
+    // Ejecuta el cambio de estado tras confirmar
+    const confirmarCambioOperativo = async () => {
+        const { habitacion, nuevoEstado } = modalOperativo;
+        if (!habitacion) return;
 
         try {
-            await api.put(`/habitaciones/${idHabitacion}/estado-operativo`, { estado: nuevoEstado });
+            await api.put(`/habitaciones/${habitacion.id}/estado-operativo`, { estado: nuevoEstado });
+            setModalOperativo({ isOpen: false, habitacion: null, nuevoEstado: '' });
             obtenerHabitaciones();
         } catch (error) {
             console.error('Error al cambiar estado operativo:', error);
-            alert('No se pudo actualizar el estado');
+            alert('No se pudo actualizar el estado de la habitación');
         }
     };
 
@@ -177,7 +193,7 @@ export default function SupervisorDashboard() {
                                 <p className="text-2xl font-semibold text-gray-900 mt-1">{totalHabitaciones}</p>
                             </div>
                             <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
                             </div>
                         </div>
                     </div>
@@ -185,11 +201,11 @@ export default function SupervisorDashboard() {
                     <div className="flex flex-col gap-4 rounded-xl border border-gray-200 shadow-sm bg-white p-5">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-xs font-medium text-gray-600">Disponibles</p>
+                                <p className="text-xs font-medium text-gray-600">Vacia Limpia</p>
                                 <p className="text-2xl font-semibold text-gray-900 mt-1">{libreLimpia}</p>
                             </div>
                             <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                             </div>
                         </div>
                     </div>
@@ -197,11 +213,11 @@ export default function SupervisorDashboard() {
                     <div className="flex flex-col gap-4 rounded-xl border border-gray-200 shadow-sm bg-white p-5">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-xs font-medium text-gray-600">Por Limpiar</p>
+                                <p className="text-xs font-medium text-gray-600">Vacia Sucia</p>
                                 <p className="text-2xl font-semibold text-gray-900 mt-1">{libreSucia}</p>
                             </div>
                             <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+                                <BrushCleaning className="w-5 h-5" />
                             </div>
                         </div>
                     </div>
@@ -213,7 +229,7 @@ export default function SupervisorDashboard() {
                                 <p className="text-2xl font-semibold text-gray-900 mt-1">{ocupada}</p>
                             </div>
                             <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
                             </div>
                         </div>
                     </div>
@@ -225,7 +241,7 @@ export default function SupervisorDashboard() {
                                 <p className="text-2xl font-semibold text-gray-900 mt-1">{mantenimientoCount}</p>
                             </div>
                             <div className="w-10 h-10 bg-red-50 text-red-600 rounded-xl flex items-center justify-center">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                             </div>
                         </div>
                     </div>
@@ -237,7 +253,7 @@ export default function SupervisorDashboard() {
                                 <p className="text-2xl font-semibold text-gray-900 mt-1">{limpiezaSemanalCount}</p>
                             </div>
                             <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                             </div>
                         </div>
                     </div>
@@ -265,8 +281,9 @@ export default function SupervisorDashboard() {
 
                         <div className="flex flex-wrap gap-2 w-full md:w-auto">
                             <button onClick={() => setFiltroEstado('TODOS')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'TODOS' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Todas</button>
-                            <button onClick={() => setFiltroEstado('DISPONIBLES')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'DISPONIBLES' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-700 hover:bg-green-100'}`}>Disponibles</button>
-                            <button onClick={() => setFiltroEstado('SUCIAS')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'SUCIAS' ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700 hover:bg-purple-100'}`}>Por Limpiar</button>
+                            <button onClick={() => setFiltroEstado('DISPONIBLES')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'DISPONIBLES' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-700 hover:bg-green-100'}`}>Vacia Limpia</button>
+                            <button onClick={() => setFiltroEstado('SUCIAS')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'SUCIAS' ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700 hover:bg-purple-100'}`}>Vacia Sucia</button>
+                            <button onClick={() => setFiltroEstado('OCUPADAS')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'OCUPADAS' ? 'bg-orange-600 text-white' : 'bg-orange-50 text-orange-700 hover:bg-orange-100'}`}>Ocupadas</button>
                             <button onClick={() => setFiltroEstado('MANTENIMIENTO')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'MANTENIMIENTO' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-700 hover:bg-red-100'}`}>Mantenimiento</button>
                             <button onClick={() => setFiltroEstado('LIMPIEZA_SEMANAL')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'LIMPIEZA_SEMANAL' ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'}`}>Limpieza Semanal</button>
                         </div>
@@ -283,54 +300,70 @@ export default function SupervisorDashboard() {
                                         <div className="flex justify-between items-center mb-3">
                                             <span className="font-bold text-lg text-gray-800">Hab. {h.num_habitacion}</span>
 
-                                            <span className={`px-2.5 py-1 text-xs font-semibold rounded-lg border ${
-                                                h.estado === 'LIBRE_LIMPIA' ? 'bg-green-100 text-green-700 border-green-300' :
+                                            <span className={`px-2.5 py-1 text-xs font-semibold rounded-lg border ${h.estado === 'LIBRE_LIMPIA' ? 'bg-green-100 text-green-700 border-green-300' :
                                                 h.estado === 'LIBRE_SUCIA' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
-                                                h.estado === 'OCUPADA' ? 'bg-red-100 text-red-700 border-red-300' :
-                                                h.estado === 'RESERVADA' ? 'bg-blue-100 text-blue-700 border-blue-300' :
-                                                h.estado === 'MANTENIMIENTO' ? 'bg-red-200 text-red-800 border-red-400 font-bold' :
-                                                'bg-blue-200 text-blue-800 border-blue-400 font-bold'
-                                            }`}>
-                                                {h.estado === 'LIBRE_LIMPIA' ? 'Limpia' : 
-                                                 h.estado === 'LIBRE_SUCIA' ? 'Sucia' : 
-                                                 h.estado === 'OCUPADA' ? 'Ocupada' : 
-                                                 h.estado === 'RESERVADA' ? 'Reservada' :
-                                                 h.estado === 'MANTENIMIENTO' ? 'Mantenimiento' : 'Limpieza Semanal'}
+                                                    h.estado === 'OCUPADA' ? 'bg-red-100 text-red-700 border-red-300' :
+                                                        h.estado === 'RESERVADA' ? 'bg-blue-100 text-blue-700 border-blue-300' :
+                                                            h.estado === 'MANTENIMIENTO' ? 'bg-red-200 text-red-800 border-red-400 font-bold' :
+                                                                'bg-blue-200 text-blue-800 border-blue-400 font-bold'
+                                                }`}>
+                                                {h.estado === 'LIBRE_LIMPIA' ? 'Vacia Limpia' :
+                                                    h.estado === 'LIBRE_SUCIA' ? 'Vacia Sucia' :
+                                                        h.estado === 'OCUPADA' ? 'Ocupada' :
+                                                            h.estado === 'RESERVADA' ? 'Reservada' :
+                                                                h.estado === 'MANTENIMIENTO' ? 'Mantenimiento' : 'Limpieza Semanal'}
                                             </span>
                                         </div>
 
                                         <p className="text-sm text-gray-600">Tipo: <span className="font-medium text-gray-800">{h.tipo}</span></p>
                                         <p className="text-sm text-gray-600 mb-3">Precio: <span className="font-medium text-gray-800">${h.precio_base}</span></p>
 
-                                        {/* ACCIONES RÁPIDAS DEL SUPERVISOR */}
+                                        {/* ACCIONES RÁPIDAS DEL SUPERVISOR (Validadas según disponibilidad) */}
                                         <div className="flex flex-col gap-1.5 pt-2 border-t border-gray-100">
                                             <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide">Acciones del Supervisor:</p>
-                                            <div className="grid grid-cols-2 gap-2">
-                                                {h.estado !== 'MANTENIMIENTO' ? (
-                                                    <button
-                                                        onClick={() => cambiarEstadoOperativo(h.id, 'MANTENIMIENTO')}
-                                                        className="py-1.5 px-2 bg-red-50 text-red-700 hover:bg-red-100 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1 cursor-pointer border border-red-200"
-                                                    >
-                                                        <Wrench className="w-3.5 h-3.5" /> Mantenimiento
-                                                    </button>
-                                                ) : (
-                                                    <button
-                                                        onClick={() => cambiarEstadoOperativo(h.id, 'LIBRE_LIMPIA')}
-                                                        className="py-1.5 px-2 bg-green-50 text-green-700 hover:bg-green-100 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1 cursor-pointer border border-green-200 col-span-2"
-                                                    >
-                                                        <DoorOpen className="w-3.5 h-3.5" /> Liberar de Mantenimiento
-                                                    </button>
-                                                )}
+                                            
+                                            {/* RESTRICCIÓN: Solo se permite modificar si la habitación está libre (LIBRE_LIMPIA o LIBRE_SUCIA) o si ya se encuentra en mantenimiento/limpieza semanal */}
+                                            {(h.estado === 'LIBRE_LIMPIA' || h.estado === 'LIBRE_SUCIA' || h.estado === 'MANTENIMIENTO' || h.estado === 'LIMPIEZA_SEMANAL') ? (
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    {h.estado !== 'MANTENIMIENTO' ? (
+                                                        <button
+                                                            onClick={() => abrirModalOperativo(h, 'MANTENIMIENTO')}
+                                                            className="py-1.5 px-2 bg-red-50 text-red-700 hover:bg-red-100 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1 cursor-pointer border border-red-200"
+                                                        >
+                                                            <Wrench className="w-3.5 h-3.5" /> Mantenimiento
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => abrirModalOperativo(h, 'LIBRE_LIMPIA')}
+                                                            className="py-1.5 px-2 bg-green-50 text-green-700 hover:bg-green-100 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1 cursor-pointer border border-green-200 col-span-2"
+                                                        >
+                                                            <DoorOpen className="w-3.5 h-3.5" /> Liberar de Mantenimiento
+                                                        </button>
+                                                    )}
 
-                                                {h.estado !== 'LIMPIEZA_SEMANAL' && h.estado !== 'MANTENIMIENTO' && (
-                                                    <button
-                                                        onClick={() => cambiarEstadoOperativo(h.id, 'LIMPIEZA_SEMANAL')}
-                                                        className="py-1.5 px-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1 cursor-pointer border border-blue-200"
-                                                    >
-                                                        <CalendarCheck className="w-3.5 h-3.5" /> Limp. Semanal
-                                                    </button>
-                                                )}
-                                            </div>
+                                                    {h.estado === 'LIMPIEZA_SEMANAL' && (
+                                                        <button
+                                                            onClick={() => abrirModalOperativo(h, 'LIBRE_LIMPIA')}
+                                                            className="py-1.5 px-2 bg-green-50 text-green-700 hover:bg-green-100 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1 cursor-pointer border border-green-200 col-span-2 mt-1"
+                                                        >
+                                                            <DoorOpen className="w-3.5 h-3.5" /> Liberar Limpieza Semanal
+                                                        </button>
+                                                    )}
+
+                                                    {h.estado !== 'LIMPIEZA_SEMANAL' && h.estado !== 'MANTENIMIENTO' && (
+                                                        <button
+                                                            onClick={() => abrirModalOperativo(h, 'LIMPIEZA_SEMANAL')}
+                                                            className="py-1.5 px-2 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1 cursor-pointer border border-blue-200"
+                                                        >
+                                                            <CalendarCheck className="w-3.5 h-3.5" /> Limp. Semanal
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div className="py-2 px-3 bg-gray-50 border border-gray-200 rounded-xl text-center">
+                                                    <p className="text-[11px] text-gray-400 font-medium">Habitación ocupada (Acciones bloqueadas)</p>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -342,6 +375,53 @@ export default function SupervisorDashboard() {
                         )}
                     </div>
                 </div>
+
+                {/* MODAL ESTILIZADO DE CONFIRMACIÓN OPERATIVA */}
+                {modalOperativo.isOpen && (
+                    <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 p-4 transition-all">
+                        <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-gray-100 flex flex-col items-center text-center">
+
+                            <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 ${modalOperativo.nuevoEstado === 'MANTENIMIENTO' ? 'bg-red-50 text-red-600' :
+                                modalOperativo.nuevoEstado === 'LIMPIEZA_SEMANAL' ? 'bg-blue-50 text-blue-600' :
+                                    'bg-green-50 text-green-600'
+                                }`}>
+                                {modalOperativo.nuevoEstado === 'MANTENIMIENTO' ? <Wrench className="w-6 h-6" /> :
+                                    modalOperativo.nuevoEstado === 'LIMPIEZA_SEMANAL' ? <CalendarCheck className="w-6 h-6" /> :
+                                        <DoorOpen className="w-6 h-6" />}
+                            </div>
+
+                            <h3 className="text-base font-bold text-gray-900 mb-1">
+                                {modalOperativo.nuevoEstado === 'MANTENIMIENTO' ? 'Bloquear por Mantenimiento' :
+                                    modalOperativo.nuevoEstado === 'LIMPIEZA_SEMANAL' ? 'Programar Limpieza Semanal' :
+                                        'Liberar Habitación'}
+                            </h3>
+
+                            <p className="text-xs text-gray-500 mb-6">
+                                ¿Deseas actualizar el estado operativo de la <span className="font-semibold text-gray-800">Habitación #{modalOperativo.habitacion?.num_habitacion}</span>? La recamarista y recepción verán reflejado el cambio de inmediato.
+                            </p>
+
+                            <div className="flex gap-2.5 w-full">
+                                <button
+                                    type="button"
+                                    onClick={() => setModalOperativo({ isOpen: false, habitacion: null, nuevoEstado: '' })}
+                                    className="flex-1 py-2.5 border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-50 transition cursor-pointer"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={confirmarCambioOperativo}
+                                    className={`flex-1 py-2.5 rounded-xl text-xs font-semibold text-white transition shadow-sm cursor-pointer ${modalOperativo.nuevoEstado === 'MANTENIMIENTO' ? 'bg-red-600 hover:bg-red-700' :
+                                        modalOperativo.nuevoEstado === 'LIMPIEZA_SEMANAL' ? 'bg-blue-600 hover:bg-blue-700' :
+                                            'bg-green-600 hover:bg-green-700'
+                                        }`}
+                                >
+                                    Confirmar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {isOpen && (
                     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
