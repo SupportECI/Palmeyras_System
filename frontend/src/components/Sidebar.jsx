@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, BarChart3, Ban, Users, LogOut, Menu, CalendarPlus, BedDouble, FileText, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, BarChart3, Users, LogOut, Menu, ShieldCheck } from 'lucide-react';
 
 export default function Sidebar({ isCollapsed, setIsCollapsed }) {
     const [rolUsuario, setRolUsuario] = useState('');
@@ -10,7 +10,8 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
         const usuarioGuardado = localStorage.getItem('usuario');
         if (usuarioGuardado) {
             const parsedUser = JSON.parse(usuarioGuardado);
-            setRolUsuario(parsedUser.rol);
+            // Normalizamos el rol a minúsculas por seguridad
+            setRolUsuario(parsedUser.rol ? parsedUser.rol.toLowerCase() : '');
         }
     }, []);
 
@@ -21,19 +22,19 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
 
     const obtenerRutaDashboard = () => {
         switch (rolUsuario) {
-            case 'RECEPCIONISTA': return '/dashboard/recepcionista';
-            case 'RECAMARISTA': return '/dashboard/recamarista';
-            case 'SUPERVISOR': return '/dashboard/supervisor';
-            case 'ADMINISTRADOR': return '/dashboard/administrador';
+            case 'recepcion': return '/dashboard/recepcionista';
+            case 'recamarista': return '/dashboard/recamarista';
+            case 'supervisor': return '/dashboard/supervisor';
+            case 'admin': return '/dashboard/administrador';
             default: return '/dashboard';
         }
     };
 
     const obtenerRutaReportes = () => {
         switch (rolUsuario) {
-            case 'RECEPCIONISTA': return '/dashboard/recepcionista/reportes';
-            case 'SUPERVISOR': return '/dashboard/supervisor/reportes';
-            case 'ADMINISTRADOR': return '/dashboard/administrador/reportes';
+            case 'recepcion': return '/dashboard/recepcionista/reportes';
+            case 'supervisor': return '/dashboard/supervisor/reportes';
+            case 'admin': return '/dashboard/administrador/reportes';
             default: return '/dashboard/reportes';
         }
     };
@@ -60,15 +61,17 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
                         {!isCollapsed && <span>Dashboard</span>}
                     </Link>
 
-                    <Link
-                        to={obtenerRutaReportes()}
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition font-medium text-sm ${location.pathname === obtenerRutaReportes() ? 'bg-red-50 text-red-600' : 'text-gray-600 hover:bg-gray-100'}`}
-                    >
-                        <BarChart3 className="w-5 h-5 shrink-0" />
-                        {!isCollapsed && <span>Reportes</span>}
-                    </Link>
+                    {rolUsuario !== 'recamarista' && (
+                        <Link
+                            to={obtenerRutaReportes()}
+                            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition font-medium text-sm ${location.pathname === obtenerRutaReportes() ? 'bg-red-50 text-red-600' : 'text-gray-600 hover:bg-gray-100'}`}
+                        >
+                            <BarChart3 className="w-5 h-5 shrink-0" />
+                            {!isCollapsed && <span>Reportes</span>}
+                        </Link>
+                    )}
 
-                    {rolUsuario === 'ADMINISTRADOR' && (
+                    {rolUsuario === 'admin' && (
                         <Link
                             to="/dashboard/administrador/usuarios"
                             className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition font-medium text-sm ${location.pathname === '/dashboard/administrador/usuarios' ? 'bg-red-50 text-red-600' : 'text-gray-600 hover:bg-gray-100'}`}
@@ -78,7 +81,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
                         </Link>
                     )}
 
-                    {(rolUsuario === 'ADMINISTRADOR' || rolUsuario === 'SUPERVISOR') && (
+                    {(rolUsuario === 'admin' || rolUsuario === 'supervisor') && (
                         <Link
                             to="/dashboard/auditoria-limpiezas"
                             className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition font-medium text-sm ${location.pathname === '/dashboard/auditoria-limpiezas' ? 'bg-red-50 text-red-600' : 'text-gray-600 hover:bg-gray-100'}`}

@@ -38,11 +38,12 @@ export default function SupervisorDashboard() {
     /* Estado para modal de agregar habitación */
     const [isOpen, setIsOpen] = useState(false);
 
-    /* Estado para el modal estilizado de confirmación operativa */
+    /* Estado para el modal estilizado de confirmación operativa con motivo */
     const [modalOperativo, setModalOperativo] = useState({
         isOpen: false,
         habitacion: null,
-        nuevoEstado: ''
+        nuevoEstado: '',
+        motivo: '' // NUEVO ESTADO PARA EL MOTIVO
     });
 
     /* Estados para filtrar búsquedas */
@@ -51,7 +52,6 @@ export default function SupervisorDashboard() {
 
     const [isCollapsed, setIsCollapsed] = useState(false);
 
-    // Función principal para obtener habitaciones
     const obtenerHabitaciones = async () => {
         try {
             const respuesta = await api.get('/habitaciones');
@@ -108,23 +108,31 @@ export default function SupervisorDashboard() {
         return () => clearInterval(intervalo);
     }, []);
 
-    // Abre el modal estilizado
     const abrirModalOperativo = (habitacion, nuevoEstado) => {
         setModalOperativo({
             isOpen: true,
             habitacion,
-            nuevoEstado
+            nuevoEstado,
+            motivo: '' // Reiniciamos el motivo al abrir
         });
     };
 
-    // Ejecuta el cambio de estado tras confirmar
     const confirmarCambioOperativo = async () => {
-        const { habitacion, nuevoEstado } = modalOperativo;
+        const { habitacion, nuevoEstado, motivo } = modalOperativo;
         if (!habitacion) return;
 
+        // Si es mantenimiento, validamos que se escriba un motivo opcional o requerido
+        if (nuevoEstado === 'MANTENIMIENTO' && !motivo.trim()) {
+            alert('Por favor, especifica el motivo del mantenimiento.');
+            return;
+        }
+
         try {
-            await api.put(`/habitaciones/${habitacion.id}/estado-operativo`, { estado: nuevoEstado });
-            setModalOperativo({ isOpen: false, habitacion: null, nuevoEstado: '' });
+            await api.put(`/habitaciones/${habitacion.id}/estado-operativo`, { 
+                estado: nuevoEstado, 
+                motivo: motivo // Enviamos el motivo al backend
+            });
+            setModalOperativo({ isOpen: false, habitacion: null, nuevoEstado: '', motivo: '' });
             obtenerHabitaciones();
         } catch (error) {
             console.error('Error al cambiar estado operativo:', error);
@@ -306,7 +314,7 @@ export default function SupervisorDashboard() {
                                                         h.estado === 'RESERVADA' ? 'bg-blue-100 text-blue-700 border-blue-300' :
                                                             h.estado === 'MANTENIMIENTO' ? 'bg-red-200 text-red-800 border-red-400 font-bold' :
                                                                 'bg-blue-200 text-blue-800 border-blue-400 font-bold'
-                                                }`}>
+                                            }`}>
                                                 {h.estado === 'LIBRE_LIMPIA' ? 'Vacia Limpia' :
                                                     h.estado === 'LIBRE_SUCIA' ? 'Vacia Sucia' :
                                                         h.estado === 'OCUPADA' ? 'Ocupada' :
@@ -318,11 +326,10 @@ export default function SupervisorDashboard() {
                                         <p className="text-sm text-gray-600">Tipo: <span className="font-medium text-gray-800">{h.tipo}</span></p>
                                         <p className="text-sm text-gray-600 mb-3">Precio: <span className="font-medium text-gray-800">${h.precio_base}</span></p>
 
-                                        {/* ACCIONES RÁPIDAS DEL SUPERVISOR (Validadas según disponibilidad) */}
+                                        {/* ACCIONES RÁPIDAS DEL SUPERVISOR */}
                                         <div className="flex flex-col gap-1.5 pt-2 border-t border-gray-100">
                                             <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide">Acciones del Supervisor:</p>
                                             
-                                            {/* RESTRICCIÓN: Solo se permite modificar si la habitación está libre (LIBRE_LIMPIA o LIBRE_SUCIA) o si ya se encuentra en mantenimiento/limpieza semanal */}
                                             {(h.estado === 'LIBRE_LIMPIA' || h.estado === 'LIBRE_SUCIA' || h.estado === 'MANTENIMIENTO' || h.estado === 'LIMPIEZA_SEMANAL') ? (
                                                 <div className="grid grid-cols-2 gap-2">
                                                     {h.estado !== 'MANTENIMIENTO' ? (
@@ -376,7 +383,7 @@ export default function SupervisorDashboard() {
                     </div>
                 </div>
 
-                {/* MODAL ESTILIZADO DE CONFIRMACIÓN OPERATIVA */}
+                {/* MODAL ESTILIZADO DE CONFIRMACIÓN OPERATIVA CON CAMPO DE MOTIVO */}
                 {modalOperativo.isOpen && (
                     <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 p-4 transition-all">
                         <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-gray-100 flex flex-col items-center text-center">
@@ -396,14 +403,29 @@ export default function SupervisorDashboard() {
                                         'Liberar Habitación'}
                             </h3>
 
-                            <p className="text-xs text-gray-500 mb-6">
-                                ¿Deseas actualizar el estado operativo de la <span className="font-semibold text-gray-800">Habitación #{modalOperativo.habitacion?.num_habitacion}</span>? La recamarista y recepción verán reflejado el cambio de inmediato.
+                            <p className="text-xs text-gray-500 mb-4">
+                                ¿Deseas actualizar el estado operativo de la <span className="font-semibold text-gray-800">Habitación #{modalOperativo.habitacion?.num_habitacion}</span>?
                             </p>
+
+                            {/* Campo para ingresar el motivo si es Mantenimiento */}
+                            {modalOperativo.nuevoEstado === 'MANTENIMIENTO' && (
+                                <div className="w-full mb-4 text-left">
+                                    <label className="block text-xs font-bold text-gray-700 mb-1">Motivo del Mantenimiento:</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Ej. Fuga en lavabo, cambiar foco, etc."
+                                        value={modalOperativo.motivo}
+                                        onChange={(e) => setModalOperativo({ ...modalOperativo, motivo: e.target.value })}
+                                        className="w-full border border-gray-300 rounded-xl px-3 py-2 text-xs outline-none focus:border-red-500"
+                                        required
+                                    />
+                                </div>
+                            )}
 
                             <div className="flex gap-2.5 w-full">
                                 <button
                                     type="button"
-                                    onClick={() => setModalOperativo({ isOpen: false, habitacion: null, nuevoEstado: '' })}
+                                    onClick={() => setModalOperativo({ isOpen: false, habitacion: null, nuevoEstado: '', motivo: '' })}
                                     className="flex-1 py-2.5 border border-gray-200 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-50 transition cursor-pointer"
                                 >
                                     Cancelar

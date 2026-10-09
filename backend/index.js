@@ -57,46 +57,17 @@ app.get('/api/habitaciones', async (req, res) => {
     try {
         const sql = `
             SELECT h.*, 
-                   r.id AS reservacion_id,
-                   r.hora_reservacion, 
-                   r.fecha_reservacion,
-                   c.nombre_completo AS cliente_nombre,
                    (SELECT UNIX_TIMESTAMP(MAX(rt.created_at)) * 1000
                       FROM rentas rt
-                     WHERE rt.habitacion_id = h.id AND rt.estado = 'ACTIVA') AS inicio_renta_ms
+                      WHERE rt.habitacion_id = h.id AND rt.estado = 'ACTIVA') AS inicio_renta_ms
             FROM habitaciones h
-            LEFT JOIN reservaciones r ON h.id = r.habitacion_id AND r.estado = 'PENDIENTE' AND r.fecha_reservacion = CURDATE()
-            LEFT JOIN clientes c ON r.cliente_id = c.id
             ORDER BY CAST(h.num_habitacion AS UNSIGNED) ASC
         `;
-
         const [habitaciones] = await db.query(sql);
-        const ahora = new Date();
-        const horaActualMinutos = ahora.getHours() * 60 + ahora.getMinutes();
-
-        for (let h of habitaciones) {
-            if ((h.estado === 'LIBRE_LIMPIA' || h.estado === 'LIBRE_SUCIA') && h.hora_reservacion) {
-                const [hRes, mRes] = h.hora_reservacion.split(':').map(Number);
-                const horaReservaMinutos = hRes * 60 + mRes;
-                const inicioBloqueoMinutos = horaReservaMinutos - 120; // 2 horas antes
-
-                if (horaActualMinutos >= inicioBloqueoMinutos) {
-                    await db.query("UPDATE habitaciones SET estado = 'RESERVADA' WHERE id = ?", [h.id]);
-                    h.estado = 'RESERVADA';
-                }
-            }
-        }
-
-        const ahoraServidorMs = Date.now();
-        habitaciones.forEach(h => {
-            if (h.inicio_renta_ms) h.inicio_renta_ms = Number(h.inicio_renta_ms);
-            h.ahora_servidor_ms = ahoraServidorMs;
-        });
-
-        res.status(200).json({ success: true, habitaciones });
+        return res.status(200).json({ success: true, habitaciones });
     } catch (err) {
-        console.error(err);
-        return res.status(500).json({ success: false, message: 'Error al consultar habitaciones' });
+        console.error("Error al obtener habitaciones:", err);
+        return res.status(500).json({ success: false, message: 'Error al obtener habitaciones' });
     }
 });
 
@@ -128,13 +99,15 @@ app.delete('/api/habitaciones/:id', async (req, res) => {
 app.put('/api/habitaciones/:id/estado-operativo', async (req, res) => {
     try {
         const { id } = req.params;
-        const { estado } = req.body;
+        const { estado, motivo } = req.body;
 
-        const sql = "UPDATE habitaciones SET estado = ? WHERE id = ?";
-        await db.query(sql, [estado, id]);
-        res.status(200).json({ success: true, message: 'Estado operativo actualizado' });
+        const sql = "UPDATE habitaciones SET estado = ?, motivo_mantenimiento = ? WHERE id = ?";
+        await db.query(sql, [estado, motivo || null, id]);
+
+        return res.status(200).json({ success: true, message: "Estado operativo actualizado" });
     } catch (err) {
-        return res.status(500).json({ success: false, message: 'Error al actualizar estado operativo' });
+        console.error("Error al actualizar estado operativo:", err);
+        return res.status(500).json({ success: false, message: "Error en el servidor" });
     }
 });
 
@@ -168,14 +141,15 @@ app.post('/api/rentas/check-in', async (req, res) => {
     try {
         const habitacion_id = req.body.habitacion_id || req.body.habitacionId;
         const precio_cobrado = req.body.precio_cobrado || req.body.precioCobrado;
+        const vehiculo = req.body.vehiculo;
 
         if (!habitacion_id || !precio_cobrado) {
             return res.status(400).json({ success: false, message: 'Faltan datos obligatorios.' });
         }
 
         const clienteIdDefault = 1;
-        const sqlRenta = "INSERT INTO rentas (habitacion_id, cliente_id, precio_cobrado, estado, created_at) VALUES (?, ?, ?, 'ACTIVA', NOW())";
-        await db.query(sqlRenta, [habitacion_id, clienteIdDefault, precio_cobrado]);
+        const sqlRenta = "INSERT INTO rentas (habitacion_id, cliente_id, precio_cobrado, estado, vehiculo, created_at) VALUES (?, ?, ?, 'ACTIVA', ?, NOW())";
+        await db.query(sqlRenta, [habitacion_id, clienteIdDefault, precio_cobrado, vehiculo]);
 
         const sqlHab = "UPDATE habitaciones SET estado = 'OCUPADA' WHERE id = ?";
         await db.query(sqlHab, [habitacion_id]);
@@ -446,21 +420,21 @@ app.put('/api/habitaciones/:id/limpiar', async (req, res) => {
 app.get('/api/reportes/recepcion', async (req, res) => {
     try {
         const { periodo, fecha_inicio, fecha_fin } = req.query;
-        let filtroFecha = "DATE(created_at) = CURDATE()";
+        let filtroFecha = "DATE(r.created_at) = CURDATE()";
 
         if (periodo === 'semana') {
-            filtroFecha = "YEARWEEK(created_at, 1) = YEARWEEK(CURDATE(), 1)";
+            filtroFecha = "YEARWEEK(r.created_at, 1) = YEARWEEK(CURDATE(), 1)";
         } else if (periodo === 'mes') {
-            filtroFecha = "MONTH(created_at) = MONTH(CURDATE()) AND YEAR(created_at) = YEAR(CURDATE())";
+            filtroFecha = "MONTH(r.created_at) = MONTH(CURDATE()) AND YEAR(r.created_at) = YEAR(CURDATE())";
         } else if (periodo === 'personalizado' && fecha_inicio && fecha_fin) {
-            filtroFecha = `DATE(created_at) BETWEEN '${fecha_inicio}' AND '${fecha_fin}'`;
+            filtroFecha = `DATE(r.created_at) BETWEEN '${fecha_inicio}' AND '${fecha_fin}'`;
         }
 
         const sqlResumen = `
             SELECT 
                 COUNT(*) AS total_estancias, 
                 COALESCE(SUM(precio_cobrado), 0) AS ingresos_totales 
-            FROM rentas 
+            FROM rentas r
             WHERE ${filtroFecha}
         `;
 
@@ -475,14 +449,14 @@ app.get('/api/reportes/recepcion', async (req, res) => {
         const [resumenResult] = await db.query(sqlResumen);
         const [detalleResult] = await db.query(sqlDetalle);
 
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
-            resumen: resumenResult[0],
-            detalle: detalleResult
+            resumen: resumenResult[0] || { total_estancias: 0, ingresos_totales: 0 },
+            detalle: detalleResult || []
         });
     } catch (err) {
-        console.error("Error al generar reportes:", err);
-        return res.status(500).json({ success: false, message: 'Error al generar reporte' });
+        console.error("Error al generar reportes de recepción:", err);
+        return res.status(500).json({ success: false, message: 'Error al generar reporte: ' + err.message });
     }
 });
 

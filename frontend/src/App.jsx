@@ -22,27 +22,31 @@ function App() {
         <Route path="/" element={<Login />} />
 
         <Route path='/dashboard/supervisor'
-          element={<ProtectedRoute rolPermitido='SUPERVISOR'>
+          element={<ProtectedRoute rolPermitido='supervisor'>
             <SupervisorDashboard />
           </ProtectedRoute>} />
 
         <Route path='/dashboard/supervisor/reportes' element={
-          <ProtectedRoute rolPermitido='SUPERVISOR'>
+          <ProtectedRoute rolPermitido='supervisor'>
             <SupervisorReportes />
           </ProtectedRoute>} />
 
-          <Route path='/dashboard/administrador/reportes' element={
-          <ProtectedRoute rolPermitido='ADMINISTRADOR'>
+        <Route path='/dashboard/administrador/reportes' element={
+          <ProtectedRoute rolPermitido='admin'>
             <AdminReportes />
           </ProtectedRoute>} />
 
         <Route path='/dashboard/auditoria-limpiezas' element={
-          <ProtectedRoute rolPermitido={['ADMINISTRADOR', 'SUPERVISOR']}>
+          <ProtectedRoute rolPermitido={['admin', 'supervisor']}>
             <AuditoriaLimpiezas />
           </ProtectedRoute>
         }/>
 
-        <Route path='/dashboard/recepcionista/reportes'element={<RecepcionReportes />}/>
+        <Route path='/dashboard/recepcionista/reportes' element={
+          <ProtectedRoute rolPermitido='recepcion'>
+            <RecepcionReportes />
+          </ProtectedRoute>
+        }/>
 
         <Route path='/dashboard/reservaciones/nueva' element={
           <ProtectedRoute>
@@ -56,22 +60,22 @@ function App() {
           </ProtectedRoute>} />
 
         <Route path='/dashboard/recepcionista' element={
-          <ProtectedRoute rolPermitido='RECEPCIONISTA'>
+          <ProtectedRoute rolPermitido='recepcion'>
             <RecepcionDashboard />
           </ProtectedRoute>} />
 
         <Route path='/dashboard/recamarista' element={
-          <ProtectedRoute rolPermitido='RECAMARISTA'>
+          <ProtectedRoute rolPermitido='recamarista'>
             <RecamaristaDashboard />
           </ProtectedRoute>} />
 
         <Route path='/dashboard/administrador' element={
-          <ProtectedRoute rolPermitido='ADMINISTRADOR'>
+          <ProtectedRoute rolPermitido='admin'>
             <AdminDashboard />
           </ProtectedRoute>} />
         
         <Route path='/dashboard/administrador/usuarios' element={
-          <ProtectedRoute>
+          <ProtectedRoute rolPermitido='admin'>
             <GestionUsuarios />
           </ProtectedRoute>
         }/>

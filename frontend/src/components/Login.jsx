@@ -28,21 +28,24 @@ export default function Login() {
 
             localStorage.setItem('usuario', JSON.stringify(usuario));
 
-            switch(usuario.rol) {
-                case 'RECEPCIONISTA':
+            // Normalizamos a minúsculas por seguridad para evitar conflictos
+            const rol = usuario.rol ? usuario.rol.toLowerCase() : '';
+
+            switch(rol) {
+                case 'recepcion':
                     navigate('/dashboard/recepcionista');
                     break;
-                case 'RECAMARISTA':
+                case 'recamarista':
                     navigate('/dashboard/recamarista');
                     break;
-                case 'SUPERVISOR':
+                case 'supervisor':
                     navigate('/dashboard/supervisor');
                     break;
-                case 'ADMINISTRADOR':
+                case 'admin':
                     navigate('/dashboard/administrador');
                     break;
                 default:
-                    setError('Rol no encontrado');
+                    setError('Rol no encontrado o no autorizado');
             }
         } catch (error) {
             if(error.response?.status === 401) {
@@ -50,7 +53,7 @@ export default function Login() {
             } else if (error.response?.status === 400) {
                 setError(error.response.data.message);
             } else {
-                setError('Ocurrio un error, intente de nuevo')
+                setError('Ocurrió un error, intente de nuevo');
             }
         } finally {
             setLoading(false);
@@ -59,7 +62,7 @@ export default function Login() {
 
     return (
         <div className="h-screen w-full flex overflow-hidden bg-white">
-            {/* Imagen lateral: Oculta en móviles, ajustada para ocupar el 100% de la altura sin desbordar */}
+            {/* Imagen lateral */}
             <div className="hidden md:flex md:w-1/2 lg:w-3/5 h-full bg-gray-600/95 overflow-hidden items-center justify-center">
                 <img src={palmeyras} alt="palmeyras" className="h-full w-full object-cover" />
             </div>

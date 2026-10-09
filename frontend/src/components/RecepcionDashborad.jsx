@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import api from "../services/api";
 import Sidebar from "./Sidebar";
-import { UserCheck, LogOut, Clock, BedDouble, Sparkles, AlertCircle, Wrench, CalendarCheck, X } from 'lucide-react';
+import { UserCheck, LogOut, Clock, BedDouble, Sparkles, AlertCircle, Wrench, CalendarCheck, X, Car } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
 const DURACION_MS = 4 * 60 * 60 * 1000;
@@ -138,8 +138,6 @@ export default function RecepcionDashboard() {
     const [nombreUsuario, setNombreUsuario] = useState('');
     const [habitaciones, setHabitaciones] = useState([]);
     const [isCollapsed, setIsCollapsed] = useState(false);
-    
-    // Este estado actualizará los botones cada segundo para que se habiliten exactos
     const [ahoraLocal, setAhoraLocal] = useState(Date.now());
 
     // Estados para Check-in y Renovación
@@ -147,6 +145,7 @@ export default function RecepcionDashboard() {
     const [modalRenovarOpen, setModalRenovarOpen] = useState(false);
     const [habitacionSeleccionada, setHabitacionSeleccionada] = useState(null);
     const [precioCobrado, setPrecioCobrado] = useState('');
+    const [descripcionVehiculo, setDescripcionVehiculo] = useState(''); // NUEVO ESTADO
 
     const [modalCheckoutOpen, setModalCheckoutOpen] = useState(false);
     const [habitacionCheckoutId, setHabitacionCheckoutId] = useState(null);
@@ -157,13 +156,9 @@ export default function RecepcionDashboard() {
             const datos = JSON.parse(usuarioGuardado);
             setNombreUsuario(datos.nombre || datos.correo);
         }
-        
+
         cargarHabitaciones();
-        
-        // Petición a la base de datos cada 10 segundos
         const interval = setInterval(cargarHabitaciones, 10000); 
-        
-        // Reloj interno rápido (1 seg) para habilitar/deshabilitar botones en vivo
         const reloj = setInterval(() => setAhoraLocal(Date.now()), 1000);
 
         return () => {
@@ -198,7 +193,7 @@ export default function RecepcionDashboard() {
         iframe.style.display = 'none';
         document.body.appendChild(iframe);
         const documentoIframe = iframe.contentWindow.document;
-        
+
         documentoIframe.write(`
             <html>
                 <head>
@@ -234,7 +229,7 @@ export default function RecepcionDashboard() {
                 </body>
             </html>
         `);
-        
+
         documentoIframe.close();
         setTimeout(() => {
             iframe.contentWindow.focus();
@@ -248,7 +243,8 @@ export default function RecepcionDashboard() {
         try {
             await api.post('/rentas/check-in', {
                 habitacion_id: habitacionSeleccionada.id,
-                precio_cobrado: precioCobrado
+                precio_cobrado: precioCobrado,
+                vehiculo: descripcionVehiculo // ENVIAMOS LA DESCRIPCIÓN AL BACKEND
             });
 
             imprimirTicket(habitacionSeleccionada, precioCobrado, false);
@@ -257,6 +253,7 @@ export default function RecepcionDashboard() {
             setModalCheckinOpen(false);
             setHabitacionSeleccionada(null);
             setPrecioCobrado('');
+            setDescripcionVehiculo('');
             cargarHabitaciones();
         } catch (error) {
             console.error('Error al hacer Check-in', error);
@@ -312,10 +309,10 @@ export default function RecepcionDashboard() {
             <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} rol="recepcion" />
 
             <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${isCollapsed ? 'ml-20' : 'ml-64'}`}>
-                
+
                 <header className="bg-white text-black flex items-center justify-between h-16 px-6 border-b border-gray-200 shadow-sm sticky top-0 z-20">
                     <h1 className="text-base sm:text-lg font-semibold text-gray-800 truncate">
-                        Panel de Recepción <span className="text-sm font-normal text-gray-500 hidden sm:inline">- Control de Estancias (4 Horas)</span>
+                        Panel de Recepción <span className="text-sm font-normal text-gray-500 hidden sm:inline"> - Control de Estancias (4 Horas)</span>
                     </h1>
                     <span className="text-sm font-medium text-gray-600 truncate ml-2">
                         {nombreUsuario || "Recepcionista"}
@@ -370,6 +367,7 @@ export default function RecepcionDashboard() {
                                             onClick={() => {
                                                 setHabitacionSeleccionada(h);
                                                 setPrecioCobrado(h.precio_base);
+                                                setDescripcionVehiculo(''); // Reiniciamos el campo
                                                 setModalCheckinOpen(true);
                                             }}
                                             className="w-full py-2.5 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
@@ -380,7 +378,7 @@ export default function RecepcionDashboard() {
 
                                     {h.estado === 'LIBRE_SUCIA' && (
                                         <div className="w-full py-2.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm">
-                                            <Sparkles className="w-4 h-4 text-amber-600 shrink-0" /> En Limpieza
+                                            <Sparkles className="w-4 h-4 text-amber-600 shrink-0" /> Vacia Sucia
                                         </div>
                                     )}
 
@@ -398,15 +396,11 @@ export default function RecepcionDashboard() {
 
                                     {h.estado === 'OCUPADA' && (
                                         <div className="flex gap-2 w-full">
-                                            
-                                            {/* EVALUACIÓN DE BOTÓN RENOVAR */}
                                             {(() => {
                                                 const inicioRenta = Number(h.inicio_renta_ms || (h.created_at ? new Date(h.created_at).getTime() : 0));
                                                 const finMs = inicioRenta + DURACION_MS;
                                                 const offset = h.ahora_servidor_ms ? Number(h.ahora_servidor_ms) - Date.now() : 0;
                                                 const restante = finMs - (ahoraLocal + offset);
-                                                
-                                                // Si el restante es <= 0, el tiempo ya se excedió y permitimos renovar
                                                 const estaExpirado = restante <= 0;
 
                                                 return (
@@ -428,7 +422,7 @@ export default function RecepcionDashboard() {
                                                     </button>
                                                 );
                                             })()}
-                                            
+
                                             <button
                                                 onClick={() => abrirModalCheckout(h.id)}
                                                 className="flex-1 py-2.5 bg-rose-600 text-white rounded-xl text-xs font-semibold hover:bg-rose-700 transition flex items-center justify-center gap-1 cursor-pointer shadow-sm"
@@ -447,9 +441,9 @@ export default function RecepcionDashboard() {
                 {modalCheckinOpen && (
                     <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
                         <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-xl">
-                            <h2 className="text-lg font-bold text-gray-900 mb-1">Check-in Exprés</h2>
+                            <h2 className="text-lg font-bold text-gray-900 mb-1">Check-in</h2>
                             <p className="text-xs text-gray-500 mb-4">
-                                Habitación #{habitacionSeleccionada?.num_habitacion} ({habitacionSeleccionada?.tipo}). Estancia fija de 4 horas.
+                                Habitación #{habitacionSeleccionada?.num_habitacion} ({habitacionSeleccionada?.tipo}).
                             </p>
 
                             <form onSubmit={handleCheckinSubmit} className="flex flex-col gap-4">
@@ -459,8 +453,21 @@ export default function RecepcionDashboard() {
                                         type="number"
                                         step="0.01"
                                         value={precioCobrado}
-                                        onChange={(e) => setPrecioCobrado(e.target.value)}
-                                        className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm font-bold text-blue-700 outline-none focus:border-blue-600"
+                                        readOnly
+                                        className="w-full border border-gray-200 bg-gray-50 rounded-xl px-3 py-2.5 text-sm font-bold text-gray-500 outline-none cursor-not-allowed"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center gap-1">
+                                        <Car className="w-3.5 h-3.5 text-gray-500" /> Vehículo / Referencia
+                                    </label>
+                                    <input
+                                        type="text"
+                                        placeholder="Ej. Jetta Blanco"
+                                        value={descripcionVehiculo}
+                                        onChange={(e) => setDescripcionVehiculo(e.target.value)}
+                                        className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm font-medium text-gray-800 outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                                         required
                                     />
                                 </div>
@@ -477,7 +484,7 @@ export default function RecepcionDashboard() {
                                         type="submit"
                                         className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 cursor-pointer shadow-sm"
                                     >
-                                        Iniciar Renta (4 hrs)
+                                        Iniciar Renta
                                     </button>
                                 </div>
                             </form>
@@ -494,7 +501,7 @@ export default function RecepcionDashboard() {
                                 <h2 className="text-lg font-bold text-gray-900">Renovar Tiempo</h2>
                             </div>
                             <p className="text-xs text-gray-500 mb-4">
-                                Agregar otras 4 horas a la Habitación #{habitacionSeleccionada?.num_habitacion}. El cronómetro se reiniciará.
+                                Agregar otras 4 horas a la Habitación #{habitacionSeleccionada?.num_habitacion}.
                             </p>
 
                             <form onSubmit={handleRenovarSubmit} className="flex flex-col gap-4">
