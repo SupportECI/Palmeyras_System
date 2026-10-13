@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../services/api";
 import Sidebar from "./Sidebar";
-import { Users, UserPlus, Pencil, Trash2, AlertTriangle } from 'lucide-react';
+import { Users, UserPlus, Pencil, Trash2, AlertTriangle, CheckCircle2, X } from 'lucide-react';
 
 export default function GestionUsuarios() {
     const [isCollapsed, setIsCollapsed] = useState(false);
@@ -12,19 +12,27 @@ export default function GestionUsuarios() {
     const [nuevoNombre, setNuevoNombre] = useState('');
     const [nuevoCorreo, setNuevoCorreo] = useState('');
     const [nuevaPassword, setNuevaPassword] = useState('');
-    const [nuevoRol, setNuevoRol] = useState('RECEPCION');
+    const [nuevoRol, setNuevoRol] = useState('recepcion');
 
     // Estados para el modal de Editar usuario
     const [modalEditarOpen, setModalEditarOpen] = useState(false);
     const [usuarioEditandoId, setUsuarioEditandoId] = useState(null);
     const [editNombre, setEditNombre] = useState('');
     const [editCorreo, setEditCorreo] = useState('');
-    const [editRol, setEditRol] = useState('RECEPCION');
+    const [editRol, setEditRol] = useState('recepcion');
+    const [editPassword, setEditPassword] = useState('');
 
     // Estados para el modal de Confirmar Eliminación
     const [modalEliminarOpen, setModalEliminarOpen] = useState(false);
     const [usuarioEliminandoId, setUsuarioEliminandoId] = useState(null);
     const [nombreAEliminar, setNombreAEliminar] = useState('');
+
+    // Estado para el modal de notificación/alerta visual (reemplaza los alert del navegador)
+    const [notificacionModal, setNotificacionModal] = useState({
+        isOpen: false,
+        tipo: 'exito', // 'exito' o 'error'
+        mensaje: ''
+    });
 
     useEffect(() => {
         cargarUsuarios();
@@ -45,7 +53,7 @@ export default function GestionUsuarios() {
         try {
             await api.post('/usuarios', {
                 nombre: nuevoNombre,
-                email: nuevoCorreo,
+                correo: nuevoCorreo,
                 password: nuevaPassword,
                 rol: nuevoRol
             });
@@ -54,12 +62,21 @@ export default function GestionUsuarios() {
             setNuevoNombre('');
             setNuevoCorreo('');
             setNuevaPassword('');
-            setNuevoRol('RECEPCION');
-            alert('Usuario registrado con éxito');
+            setNuevoRol('recepcion');
+            
+            setNotificacionModal({
+                isOpen: true,
+                tipo: 'exito',
+                mensaje: '¡Usuario registrado con éxito en el sistema!'
+            });
             cargarUsuarios();
         } catch (error) {
             console.error('Error al registrar usuario', error);
-            alert(error.response?.data?.message || 'No se pudo registrar el usuario');
+            setNotificacionModal({
+                isOpen: true,
+                tipo: 'error',
+                mensaje: error.response?.data?.message || 'No se pudo registrar el usuario.'
+            });
         }
     };
 
@@ -68,7 +85,8 @@ export default function GestionUsuarios() {
         setUsuarioEditandoId(u.id);
         setEditNombre(u.nombre || '');
         setEditCorreo(u.email || u.correo || '');
-        setEditRol(u.rol || 'RECEPCION');
+        setEditRol(u.rol ? u.rol.toLowerCase() : 'recepcion');
+        setEditPassword('');
         setModalEditarOpen(true);
     };
 
@@ -76,19 +94,35 @@ export default function GestionUsuarios() {
     const handleActualizarUsuario = async (e) => {
         e.preventDefault();
         try {
-            await api.put(`/usuarios/${usuarioEditandoId}`, {
+            const payload = {
                 nombre: editNombre,
-                email: editCorreo,
+                correo: editCorreo,
                 rol: editRol
-            });
+            };
+
+            if (editPassword.trim() !== '') {
+                payload.password = editPassword;
+            }
+
+            await api.put(`/usuarios/${usuarioEditandoId}`, payload);
 
             setModalEditarOpen(false);
             setUsuarioEditandoId(null);
-            alert('Usuario actualizado con éxito');
+            setEditPassword('');
+            
+            setNotificacionModal({
+                isOpen: true,
+                tipo: 'exito',
+                mensaje: '¡Información del empleado actualizada correctamente!'
+            });
             cargarUsuarios();
         } catch (error) {
             console.error('Error al actualizar usuario', error);
-            alert(error.response?.data?.message || 'No se pudo actualizar la información');
+            setNotificacionModal({
+                isOpen: true,
+                tipo: 'error',
+                mensaje: error.response?.data?.message || 'No se pudo actualizar la información.'
+            });
         }
     };
 
@@ -105,11 +139,20 @@ export default function GestionUsuarios() {
             await api.delete(`/usuarios/${usuarioEliminandoId}`);
             setModalEliminarOpen(false);
             setUsuarioEliminandoId(null);
-            alert('Usuario eliminado correctamente');
+            
+            setNotificacionModal({
+                isOpen: true,
+                tipo: 'exito',
+                mensaje: 'El usuario ha sido eliminado correctamente.'
+            });
             cargarUsuarios();
         } catch (error) {
             console.error('Error al eliminar usuario', error);
-            alert('No se pudo eliminar el usuario');
+            setNotificacionModal({
+                isOpen: true,
+                tipo: 'error',
+                mensaje: 'No se pudo eliminar el usuario del sistema.'
+            });
         }
     };
 
@@ -159,10 +202,10 @@ export default function GestionUsuarios() {
                                                 </td>
                                                 <td className="p-3 text-gray-500">{u.email || u.correo}</td>
                                                 <td className="p-3">
-                                                    <span className={`px-2.5 py-1 rounded-lg font-semibold text-xs ${
-                                                        u.rol === 'ADMIN' ? 'bg-red-50 text-red-700 border border-red-200' :
-                                                        u.rol === 'SUPERVISOR' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-                                                        u.rol === 'RECEPCION' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                                                    <span className={`px-2.5 py-1 rounded-lg font-semibold text-xs uppercase ${
+                                                        u.rol?.toLowerCase() === 'admin' ? 'bg-red-50 text-red-700 border border-red-200' :
+                                                        u.rol?.toLowerCase() === 'supervisor' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                                                        u.rol?.toLowerCase() === 'recepcion' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
                                                         'bg-purple-50 text-purple-700 border border-purple-200'
                                                     }`}>
                                                         {u.rol}
@@ -222,10 +265,10 @@ export default function GestionUsuarios() {
                                 <div>
                                     <label className="block text-xs font-semibold text-gray-700 mb-1">Rol / Puesto en el Hotel</label>
                                     <select value={nuevoRol} onChange={(e) => setNuevoRol(e.target.value)} className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-white cursor-pointer">
-                                        <option value="RECEPCION">Recepción</option>
-                                        <option value="RECAMARISTA">Recamarista</option>
-                                        <option value="SUPERVISOR">Supervisor</option>
-                                        <option value="ADMIN">Administrador</option>
+                                        <option value="recepcion">Recepción</option>
+                                        <option value="recamarista">Recamarista</option>
+                                        <option value="supervisor">Supervisor</option>
+                                        <option value="admin">Administrador</option>
                                     </select>
                                 </div>
 
@@ -255,12 +298,16 @@ export default function GestionUsuarios() {
                                     <input type="email" value={editCorreo} onChange={(e) => setEditCorreo(e.target.value)} className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500" required />
                                 </div>
                                 <div>
+                                    <label className="block text-xs font-semibold text-gray-700 mb-1">Nueva Contraseña (Opcional)</label>
+                                    <input type="password" placeholder="Dejar en blanco para mantener la actual" value={editPassword} onChange={(e) => setEditPassword(e.target.value)} className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500" />
+                                </div>
+                                <div>
                                     <label className="block text-xs font-semibold text-gray-700 mb-1">Rol / Puesto en el Hotel</label>
                                     <select value={editRol} onChange={(e) => setEditRol(e.target.value)} className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-white cursor-pointer">
-                                        <option value="RECEPCION">Recepción</option>
-                                        <option value="RECAMARISTA">Recamarista</option>
-                                        <option value="SUPERVISOR">Supervisor</option>
-                                        <option value="ADMIN">Administrador</option>
+                                        <option value="recepcion">Recepción</option>
+                                        <option value="recamarista">Recamarista</option>
+                                        <option value="supervisor">Supervisor</option>
+                                        <option value="admin">Administrador</option>
                                     </select>
                                 </div>
 
@@ -304,6 +351,43 @@ export default function GestionUsuarios() {
                         </div>
                     </div>
                 )}
+
+                {/* MODAL DE NOTIFICACIÓN / ESTADO (ÉXITO O ERROR) */}
+                {notificacionModal.isOpen && (
+                    <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 p-4 transition-all">
+                        <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-gray-100 flex flex-col items-center text-center">
+                            
+                            <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 ${
+                                notificacionModal.tipo === 'exito' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
+                            }`}>
+                                {notificacionModal.tipo === 'exito' ? (
+                                    <CheckCircle2 className="w-6 h-6" />
+                                ) : (
+                                    <AlertTriangle className="w-6 h-6" />
+                                )}
+                            </div>
+
+                            <h3 className="text-base font-bold text-gray-900 mb-1">
+                                {notificacionModal.tipo === 'exito' ? '¡Operación Exitosa!' : 'Aviso del Sistema'}
+                            </h3>
+
+                            <p className="text-xs text-gray-500 mb-6">
+                                {notificacionModal.mensaje}
+                            </p>
+
+                            <button
+                                type="button"
+                                onClick={() => setNotificacionModal({ isOpen: false, tipo: 'exito', mensaje: '' })}
+                                className={`w-full py-2.5 rounded-xl text-xs font-semibold text-white transition shadow-sm cursor-pointer ${
+                                    notificacionModal.tipo === 'exito' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'
+                                }`}
+                            >
+                                Aceptar
+                            </button>
+                        </div>
+                    </div>
+                )}
+
             </div>
         </div>
     );

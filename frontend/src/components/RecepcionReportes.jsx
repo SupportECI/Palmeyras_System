@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import api from "../services/api";
 import Sidebar from "./Sidebar";
-import { Calendar, DollarSign, FileText, Filter, BedDouble, Clock } from 'lucide-react';
+import { DollarSign, FileText, Filter, BedDouble, Calendar, Download } from 'lucide-react';
 
 export default function RecepcionReportes() {
     const [nombreUsuario, setNombreUsuario] = useState('');
     const [isCollapsed, setIsCollapsed] = useState(false);
 
     // Estados del reporte
-    const [periodo, setPeriodo] = useState('dia'); // 'dia', 'semana', 'mes'
+    const [periodo, setPeriodo] = useState('dia'); // 'dia', 'semana', 'mes', 'personalizado'
+    const [fechaEspecifica, setFechaEspecifica] = useState('');
     const [resumen, setResumen] = useState({ total_estancias: 0, ingresos_totales: 0 });
     const [detalle, setDetalle] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -22,11 +23,18 @@ export default function RecepcionReportes() {
         cargarReporte('dia');
     }, []);
 
-    const cargarReporte = async (tipoPeriodo) => {
+    const cargarReporte = async (tipoPeriodo, fecha = '') => {
         setPeriodo(tipoPeriodo);
+        if (tipoPeriodo !== 'personalizado') {
+            setFechaEspecifica('');
+        }
         setLoading(true);
         try {
-            const res = await api.get(`/reportes/recepcion?periodo=${tipoPeriodo}`);
+            let url = `/reportes/recepcion?periodo=${tipoPeriodo}`;
+            if (tipoPeriodo === 'personalizado' && fecha) {
+                url = `/reportes/recepcion?periodo=personalizado&fecha_inicio=${fecha}&fecha_fin=${fecha}`;
+            }
+            const res = await api.get(url);
             setResumen(res.data.resumen);
             setDetalle(res.data.detalle);
         } catch (error) {
@@ -35,6 +43,43 @@ export default function RecepcionReportes() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleFechaChange = (e) => {
+        const selectedDate = e.target.value;
+        setFechaEspecifica(selectedDate);
+        if (selectedDate) {
+            cargarReporte('personalizado', selectedDate);
+        }
+    };
+
+    const exportarAExcel = () => {
+        if (detalle.length === 0) {
+            alert("No hay datos para exportar.");
+            return;
+        }
+
+        let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+        csvContent += "ID Renta,Habitacion,Fecha Ingreso,Estado,Fecha Salida,Monto Cobrado\n";
+
+        detalle.forEach(item => {
+            const id = item.id || '';
+            const hab = `Hab. ${item.num_habitacion}`;
+            const ingreso = item.created_at ? new Date(item.created_at).toLocaleString('es-MX') : '';
+            const estado = item.estado || '';
+            const salida = item.fecha_checkout ? new Date(item.fecha_checkout).toLocaleString('es-MX') : (item.estado === 'ACTIVA' ? 'En curso' : 'N/A');
+            const monto = item.precio_cobrado || 0;
+
+            csvContent += `"${id}","${hab}","${ingreso}","${estado}","${salida}","$${Number(monto).toFixed(2)}"\n`;
+        });
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `Reporte_Recepcion_${periodo}_${new Date().toISOString().slice(0, 10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     return (
@@ -48,33 +93,53 @@ export default function RecepcionReportes() {
                 </header>
 
                 <div className="p-8 flex flex-col gap-6">
-                    {/* Barra de Filtros por Periodo */}
-                    <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4">
-                        <div className="flex items-center gap-2">
-                            <Filter className="w-5 h-5 text-blue-600" />
-                            <h3 className="font-bold text-gray-800">Filtrar Reporte por:</h3>
+                    {/* Barra de Filtros y Exportación */}
+                    <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col lg:flex-row justify-between items-center gap-4">
+                        <div className="flex items-center gap-2 w-full lg:w-auto">
+                            <Filter className="w-5 h-5 text-red-600 shrink-0" />
+                            <h3 className="font-bold text-gray-800 text-sm">Filtrar Reporte por:</h3>
                         </div>
-                        <div className="flex gap-2 w-full sm:w-auto">
+
+                        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-end">
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => cargarReporte('dia')}
+                                    className={`px-4 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${periodo === 'dia' ? 'bg-red-600 text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                                >
+                                    Hoy
+                                </button>
+                                <button
+                                    onClick={() => cargarReporte('semana')}
+                                    className={`px-4 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${periodo === 'semana' ? 'bg-red-600 text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                                >
+                                    Esta Semana
+                                </button>
+                                <button
+                                    onClick={() => cargarReporte('mes')}
+                                    className={`px-4 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${periodo === 'mes' ? 'bg-red-600 text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                                >
+                                    Este Mes
+                                </button>
+                            </div>
+
+                            {/* Selector de Fecha Específica */}
+                            <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl">
+                                <Calendar className="w-4 h-4 text-gray-500" />
+                                <input 
+                                    type="date"
+                                    value={fechaEspecifica}
+                                    onChange={handleFechaChange}
+                                    className="bg-transparent text-xs font-medium text-gray-700 outline-none cursor-pointer"
+                                    title="Seleccionar día específico"
+                                />
+                            </div>
+
+                            {/* Botón de Exportar a Excel */}
                             <button
-                                onClick={() => cargarReporte('dia')}
-                                className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${periodo === 'dia' ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                    }`}
+                                onClick={exportarAExcel}
+                                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
                             >
-                                Hoy
-                            </button>
-                            <button
-                                onClick={() => cargarReporte('semana')}
-                                className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${periodo === 'semana' ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                    }`}
-                            >
-                                Esta Semana
-                            </button>
-                            <button
-                                onClick={() => cargarReporte('mes')}
-                                className={`flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${periodo === 'mes' ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                    }`}
-                            >
-                                Este Mes
+                                <Download className="w-4 h-4" /> Exportar Excel
                             </button>
                         </div>
                     </div>
@@ -108,7 +173,9 @@ export default function RecepcionReportes() {
                             <h3 className="font-bold text-gray-800 flex items-center gap-2">
                                 <FileText className="w-4 h-4 text-red-600" /> Desglose de Estancias Registradas
                             </h3>
-                            <span className="text-xs text-gray-500 font-medium">Mostrando registros para el periodo seleccionado</span>
+                            <span className="text-xs text-gray-500 font-medium">
+                                {periodo === 'personalizado' ? `Fecha: ${fechaEspecifica}` : `Periodo: ${periodo.toUpperCase()}`}
+                            </span>
                         </div>
 
                         <div className="overflow-x-auto">
@@ -125,7 +192,7 @@ export default function RecepcionReportes() {
                                 <tbody className="divide-y divide-gray-200 text-sm">
                                     {loading ? (
                                         <tr>
-                                            <td colSpan="6" className="py-8 text-center text-gray-500">Cargando reporte...</td>
+                                            <td colSpan="5" className="py-8 text-center text-gray-500">Cargando reporte...</td>
                                         </tr>
                                     ) : detalle.length > 0 ? (
                                         detalle.map((item) => (
@@ -140,8 +207,7 @@ export default function RecepcionReportes() {
                                                     })}
                                                 </td>
                                                 <td className="py-3 px-6">
-                                                    <span className={`px-2.5 py-1 text-xs font-semibold rounded-lg border ${item.estado === 'ACTIVA' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-100 text-gray-700 border-gray-200'
-                                                        }`}>
+                                                    <span className={`px-2.5 py-1 text-xs font-semibold rounded-lg border ${item.estado === 'ACTIVA' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-100 text-gray-700 border-gray-200'}`}>
                                                         {item.estado}
                                                     </span>
                                                 </td>
@@ -164,7 +230,7 @@ export default function RecepcionReportes() {
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan="6" className="py-12 text-center text-gray-400 text-sm">
+                                            <td colSpan="5" className="py-12 text-center text-gray-400 text-sm">
                                                 No se encontraron estancias registradas en este periodo.
                                             </td>
                                         </tr>

@@ -459,7 +459,7 @@ export default function RecepcionDashboard() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center gap-1">
+                                    <label className="text-xs font-bold text-gray-700 mb-1 flex items-center gap-1">
                                         <Car className="w-3.5 h-3.5 text-gray-500" /> Vehículo / Referencia
                                     </label>
                                     <input

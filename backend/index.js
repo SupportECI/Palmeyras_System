@@ -1,6 +1,7 @@
 const express = require('express');
 const mysql = require('mysql2/promise');
 const cors = require('cors');
+const bcrypt = require('bcrypt');
 
 const app = express();
 app.use(express.json({ limit: '10mb' })); 
@@ -358,13 +359,26 @@ app.get('/api/usuarios', async (req, res) => {
 
 app.post('/api/usuarios', async (req, res) => {
     try {
+        console.log("Datos recibidos en el backend:", req.body);
+
         const { nombre, correo, password, rol } = req.body;
+        const correoFinal = correo // Maneja ambos nombres de campo
+
+        if (!nombre || !correoFinal || !password || !rol) {
+            return res.status(400).json({ success: false, message: "Todos los campos son obligatorios" });
+        }
+
+        // Encriptar contraseña
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
         const sql = "INSERT INTO usuarios (nombre, correo, password, rol) VALUES (?, ?, ?, ?)";
-        const [result] = await db.query(sql, [nombre, correo, password, rol]);
-        res.status(201).json({ success: true, message: 'Usuario registrado con éxito', id: result.insertId });
+        await db.query(sql, [nombre, correoFinal, hashedPassword, rol]);
+
+        return res.status(201).json({ success: true, message: "Usuario registrado con éxito" });
     } catch (err) {
         console.error("Error al registrar usuario:", err);
-        return res.status(500).json({ success: false, message: 'Error al registrar el usuario' });
+        return res.status(500).json({ success: false, message: "Error en el servidor: " + err.message });
     }
 });
 
@@ -372,24 +386,25 @@ app.post('/api/usuarios', async (req, res) => {
 app.put('/api/usuarios/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const { nombre, correo, password, rol } = req.body;
+        const { nombre, correo, rol, password } = req.body;
+        const correoFinal = correo; 
 
-        let sql;
-        let params;
-
-        if (password && password.trim() !== "") {
-            sql = "UPDATE usuarios SET nombre = ?, correo = ?, password = ?, rol = ? WHERE id = ?";
-            params = [nombre, correo, password, rol, id];
+        // Si se proporciona una contraseña nueva, la encriptamos. Si no, actualizamos solo los datos.
+        if (password && password.trim() !== '') {
+            const salt = await bcrypt.genSalt(10);
+            const hashedPassword = await bcrypt.hash(password, salt);
+            
+            const sql = "UPDATE usuarios SET nombre = ?, correo = ?, rol = ?, password = ? WHERE id = ?";
+            await db.query(sql, [nombre, correoFinal, rol, hashedPassword, id]);
         } else {
-            sql = "UPDATE usuarios SET nombre = ?, correo = ?, rol = ? WHERE id = ?";
-            params = [nombre, correo, rol, id];
+            const sql = "UPDATE usuarios SET nombre = ?, correo = ?, rol = ? WHERE id = ?";
+            await db.query(sql, [nombre, correoFinal, rol, id]);
         }
 
-        await db.query(sql, params);
-        res.status(200).json({ success: true, message: 'Usuario actualizado correctamente' });
+        return res.status(200).json({ success: true, message: "Usuario actualizado correctamente" });
     } catch (err) {
         console.error("Error al actualizar usuario:", err);
-        return res.status(500).json({ success: false, message: 'No se pudo actualizar el usuario' });
+        return res.status(500).json({ success: false, message: "Error en el servidor al actualizar" });
     }
 });
 
