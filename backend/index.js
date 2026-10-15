@@ -28,18 +28,32 @@ conectarBD();
 app.post('/api/login', async (req, res) => {
     try {
         const { correo, password } = req.body;
-        const sql = "SELECT * FROM usuarios WHERE correo = ? AND password = ?";
-        const [results] = await db.query(sql, [correo, password]);
+        const correoFinal = correo;
 
-        if (results.length === 0) {
-            return res.status(401).json({ success: false, message: 'Correo o contraseña incorrectos' });
+        if (!correoFinal || !password) {
+            return res.status(400).json({ success: false, message: "Correo y contraseña requeridos" });
         }
 
-        const usuario = results[0];
+        // Buscamos al usuario por correo (ajusta 'correo' o 'email' según tu columna en MySQL)
+        const [rows] = await db.query("SELECT * FROM usuarios WHERE correo = ?", [correoFinal]);
+        
+        if (rows.length === 0) {
+            return res.status(401).json({ success: false, message: "Usuario no encontrado" });
+        }
 
-        res.status(200).json({
+        const usuario = rows[0];
+
+        // Comparamos la contraseña escrita con la encriptada en la base de datos
+        const passwordMatch = await bcrypt.compare(password, usuario.password);
+
+        if (!passwordMatch) {
+            return res.status(401).json({ success: false, message: "Contraseña incorrecta" });
+        }
+
+        // Si todo es correcto, devolvemos el usuario y su rol
+        return res.status(200).json({
             success: true,
-            message: 'Inicio de sesión exitoso',
+            message: "Login exitoso",
             usuario: {
                 id: usuario.id,
                 nombre: usuario.nombre,
@@ -47,9 +61,10 @@ app.post('/api/login', async (req, res) => {
                 rol: usuario.rol
             }
         });
+
     } catch (err) {
-        console.error("Error en el servidor durante el login:", err);
-        return res.status(500).json({ success: false, message: 'Error en el servidor' });
+        console.error("Error en el login:", err);
+        return res.status(500).json({ success: false, message: "Error en el servidor: " + err.message });
     }
 });
 
@@ -118,23 +133,20 @@ app.put('/api/habitaciones/:id/estado', async (req, res) => {
         const { id } = req.params;
         const { estado } = req.body;
 
-        const estadosPermitidos = ['LIBRE_LIMPIA', 'LIBRE_SUCIA', 'OCUPADA', 'RESERVADA'];
+        // Validamos que el estado recibido sea uno de los permitidos en la base de datos
+        const estadosPermitidos = ['LIBRE_LIMPIA', 'LIBRE_SUCIA', 'OCUPADA', 'RESERVADA', 'MANTENIMIENTO', 'LIMPIEZA_SEMANAL'];
+        
         if (!estadosPermitidos.includes(estado)) {
-            return res.status(400).json({ success: false, message: 'Estado de habitación no válido.' });
+            return res.status(400).json({ success: false, message: "Estado de habitación no válido" });
         }
 
-        if (estado === 'LIBRE_SUCIA') {
-            const sqlCerrarRenta = "UPDATE rentas SET estado = 'FINALIZADA', hora_fin_real = NOW() WHERE habitacion_id = ? AND estado = 'ACTIVA'";
-            await db.query(sqlCerrarRenta, [id]);
-        }
+        const sql = "UPDATE habitaciones SET estado = ? WHERE id = ?";
+        await db.query(sql, [estado, id]);
 
-        const sqlUpdateHab = "UPDATE habitaciones SET estado = ? WHERE id = ?";
-        await db.query(sqlUpdateHab, [estado, id]);
-
-        res.status(200).json({ success: true, message: `Habitación actualizada a ${estado} correctamente.` });
+        return res.status(200).json({ success: true, message: "Estado actualizado correctamente" });
     } catch (err) {
-        console.error("Error al actualizar el estado de la habitación:", err);
-        return res.status(500).json({ success: false, message: 'No se pudo actualizar el estado de la recámara.' });
+        console.error("Error al actualizar estado:", err);
+        return res.status(500).json({ success: false, message: "Error en el servidor: " + err.message });
     }
 });
 
@@ -435,43 +447,41 @@ app.put('/api/habitaciones/:id/limpiar', async (req, res) => {
 app.get('/api/reportes/recepcion', async (req, res) => {
     try {
         const { periodo, fecha_inicio, fecha_fin } = req.query;
-        let filtroFecha = "DATE(r.created_at) = CURDATE()";
+        
+        // Modificamos la consulta para hacer un JOIN con habitaciones y traer num_habitacion
+        let query = `
+            SELECT r.*, h.num_habitacion 
+            FROM rentas r 
+            LEFT JOIN habitaciones h ON r.habitacion_id = h.id 
+            WHERE 1=1
+        `;
+        let params = [];
 
-        if (periodo === 'semana') {
-            filtroFecha = "YEARWEEK(r.created_at, 1) = YEARWEEK(CURDATE(), 1)";
+        if (periodo === 'personalizado' && fecha_inicio && fecha_fin) {
+            query += " AND DATE(r.created_at) BETWEEN ? AND ?";
+            params.push(fecha_inicio, fecha_fin);
+        } else if (periodo === 'dia') {
+            query += " AND DATE(r.created_at) = CURDATE()";
+        } else if (periodo === 'semana') {
+            query += " AND YEARWEEK(r.created_at, 1) = YEARWEEK(CURDATE(), 1)";
         } else if (periodo === 'mes') {
-            filtroFecha = "MONTH(r.created_at) = MONTH(CURDATE()) AND YEAR(r.created_at) = YEAR(CURDATE())";
-        } else if (periodo === 'personalizado' && fecha_inicio && fecha_fin) {
-            filtroFecha = `DATE(r.created_at) BETWEEN '${fecha_inicio}' AND '${fecha_fin}'`;
+            query += " AND MONTH(r.created_at) = MONTH(CURDATE()) AND YEAR(r.created_at) = YEAR(CURDATE())";
         }
 
-        const sqlResumen = `
-            SELECT 
-                COUNT(*) AS total_estancias, 
-                COALESCE(SUM(precio_cobrado), 0) AS ingresos_totales 
-            FROM rentas r
-            WHERE ${filtroFecha}
-        `;
-
-        const sqlDetalle = `
-            SELECT r.id, r.habitacion_id, h.num_habitacion, r.precio_cobrado, r.estado, r.created_at, r.fecha_checkout 
-            FROM rentas r
-            JOIN habitaciones h ON r.habitacion_id = h.id
-            WHERE ${filtroFecha}
-            ORDER BY r.created_at DESC
-        `;
-
-        const [resumenResult] = await db.query(sqlResumen);
-        const [detalleResult] = await db.query(sqlDetalle);
-
-        return res.status(200).json({
-            success: true,
-            resumen: resumenResult[0] || { total_estancias: 0, ingresos_totales: 0 },
-            detalle: detalleResult || []
+        const [detalle] = await db.query(query, params);
+        
+        let ingresos_totales = detalle.reduce((acc, item) => acc + Number(item.precio_cobrado || 0), 0);
+        
+        res.json({
+            resumen: {
+                total_estancias: detalle.length,
+                ingresos_totales
+            },
+            detalle
         });
     } catch (err) {
-        console.error("Error al generar reportes de recepción:", err);
-        return res.status(500).json({ success: false, message: 'Error al generar reporte: ' + err.message });
+        console.error("Error en reporte:", err);
+        res.status(500).json({ error: err.message });
     }
 });
 

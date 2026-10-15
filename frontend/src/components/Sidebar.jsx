@@ -17,7 +17,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
 
     const handleLogout = () => {
         localStorage.removeItem('usuario');
-        window.location.href = '/';
+        window.location.replace('/');
     };
 
     const obtenerRutaDashboard = () => {

@@ -7,9 +7,10 @@ export default function RecepcionReportes() {
     const [nombreUsuario, setNombreUsuario] = useState('');
     const [isCollapsed, setIsCollapsed] = useState(false);
 
-    // Estados del reporte
+    // Estados del reporte y rango de fechas
     const [periodo, setPeriodo] = useState('dia'); // 'dia', 'semana', 'mes', 'personalizado'
-    const [fechaEspecifica, setFechaEspecifica] = useState('');
+    const [fechaInicio, setFechaInicio] = useState('');
+    const [fechaFin, setFechaFin] = useState('');
     const [resumen, setResumen] = useState({ total_estancias: 0, ingresos_totales: 0 });
     const [detalle, setDetalle] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -23,16 +24,17 @@ export default function RecepcionReportes() {
         cargarReporte('dia');
     }, []);
 
-    const cargarReporte = async (tipoPeriodo, fecha = '') => {
+    const cargarReporte = async (tipoPeriodo, inicio = '', fin = '') => {
         setPeriodo(tipoPeriodo);
         if (tipoPeriodo !== 'personalizado') {
-            setFechaEspecifica('');
+            setFechaInicio('');
+            setFechaFin('');
         }
         setLoading(true);
         try {
             let url = `/reportes/recepcion?periodo=${tipoPeriodo}`;
-            if (tipoPeriodo === 'personalizado' && fecha) {
-                url = `/reportes/recepcion?periodo=personalizado&fecha_inicio=${fecha}&fecha_fin=${fecha}`;
+            if (tipoPeriodo === 'personalizado' && inicio && fin) {
+                url = `/reportes/recepcion?periodo=personalizado&fecha_inicio=${inicio}&fecha_fin=${fin}`;
             }
             const res = await api.get(url);
             setResumen(res.data.resumen);
@@ -45,12 +47,16 @@ export default function RecepcionReportes() {
         }
     };
 
-    const handleFechaChange = (e) => {
-        const selectedDate = e.target.value;
-        setFechaEspecifica(selectedDate);
-        if (selectedDate) {
-            cargarReporte('personalizado', selectedDate);
+    const handleBuscarRango = () => {
+        if (!fechaInicio || !fechaFin) {
+            alert("Por favor seleccione ambas fechas (inicio y fin).");
+            return;
         }
+        if (fechaInicio > fechaFin) {
+            alert("La fecha de inicio no puede ser posterior a la fecha fin.");
+            return;
+        }
+        cargarReporte('personalizado', fechaInicio, fechaFin);
     };
 
     const exportarAExcel = () => {
@@ -93,45 +99,60 @@ export default function RecepcionReportes() {
                 </header>
 
                 <div className="p-8 flex flex-col gap-6">
-                    {/* Barra de Filtros y Exportación */}
-                    <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col lg:flex-row justify-between items-center gap-4">
-                        <div className="flex items-center gap-2 w-full lg:w-auto">
+                    {/* Barra de Filtros, Selector de Fechas (Calendario Flotante) y Exportación */}
+                    <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col xl:flex-row justify-between items-center gap-4">
+                        <div className="flex items-center gap-2 w-full xl:w-auto">
                             <Filter className="w-5 h-5 text-red-600 shrink-0" />
                             <h3 className="font-bold text-gray-800 text-sm">Filtrar Reporte por:</h3>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-end">
+                        <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto justify-end">
                             <div className="flex gap-2">
                                 <button
                                     onClick={() => cargarReporte('dia')}
-                                    className={`px-4 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${periodo === 'dia' ? 'bg-red-600 text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                                    className={`px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${periodo === 'dia' ? 'bg-red-600 text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                                 >
                                     Hoy
                                 </button>
                                 <button
                                     onClick={() => cargarReporte('semana')}
-                                    className={`px-4 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${periodo === 'semana' ? 'bg-red-600 text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                                    className={`px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${periodo === 'semana' ? 'bg-red-600 text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                                 >
                                     Esta Semana
                                 </button>
                                 <button
                                     onClick={() => cargarReporte('mes')}
-                                    className={`px-4 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${periodo === 'mes' ? 'bg-red-600 text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                                    className={`px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${periodo === 'mes' ? 'bg-red-600 text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                                 >
                                     Este Mes
                                 </button>
                             </div>
 
-                            {/* Selector de Fecha Específica */}
-                            <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl">
-                                <Calendar className="w-4 h-4 text-gray-500" />
-                                <input 
-                                    type="date"
-                                    value={fechaEspecifica}
-                                    onChange={handleFechaChange}
-                                    className="bg-transparent text-xs font-medium text-gray-700 outline-none cursor-pointer"
-                                    title="Seleccionar día específico"
-                                />
+                            {/* Selector de Rango con Calendario Desplegable Nativo */}
+                            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl">
+                                <Calendar className="w-4 h-4 text-red-600 shrink-0" />
+                                <div className="flex items-center gap-2 text-xs text-gray-700">
+                                    <span className="font-medium text-gray-500">De:</span>
+                                    <input 
+                                        type="date"
+                                        value={fechaInicio}
+                                        onChange={(e) => setFechaInicio(e.target.value)}
+                                        className="bg-white border border-gray-300 rounded-lg px-2 py-1 font-medium text-gray-700 outline-none focus:border-red-600 cursor-pointer shadow-2xs"
+                                    />
+                                    <span className="font-medium text-gray-500">A:</span>
+                                    <input 
+                                        type="date"
+                                        value={fechaFin}
+                                        onChange={(e) => setFechaFin(e.target.value)}
+                                        className="bg-white border border-gray-300 rounded-lg px-2 py-1 font-medium text-gray-700 outline-none focus:border-red-600 cursor-pointer shadow-2xs"
+                                    />
+                                </div>
+                                <button
+                                    onClick={handleBuscarRango}
+                                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ml-1 shadow-2xs"
+                                >
+                                    Filtrar
+                                </button>
                             </div>
 
                             {/* Botón de Exportar a Excel */}
@@ -174,7 +195,7 @@ export default function RecepcionReportes() {
                                 <FileText className="w-4 h-4 text-red-600" /> Desglose de Estancias Registradas
                             </h3>
                             <span className="text-xs text-gray-500 font-medium">
-                                {periodo === 'personalizado' ? `Fecha: ${fechaEspecifica}` : `Periodo: ${periodo.toUpperCase()}`}
+                                {periodo === 'personalizado' ? `Rango: ${fechaInicio} al ${fechaFin}` : `Periodo: ${periodo.toUpperCase()}`}
                             </span>
                         </div>
 
