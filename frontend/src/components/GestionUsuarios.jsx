@@ -27,10 +27,10 @@ export default function GestionUsuarios() {
     const [usuarioEliminandoId, setUsuarioEliminandoId] = useState(null);
     const [nombreAEliminar, setNombreAEliminar] = useState('');
 
-    // Estado para el modal de notificación/alerta visual (reemplaza los alert del navegador)
+    // Estado para el modal de notificación/alerta visual
     const [notificacionModal, setNotificacionModal] = useState({
         isOpen: false,
-        tipo: 'exito', // 'exito' o 'error'
+        tipo: 'exito',
         mensaje: ''
     });
 
@@ -80,7 +80,7 @@ export default function GestionUsuarios() {
         }
     };
 
-    // Abrir modal de editar con los datos actuales
+    // Abrir modal de editar
     const abrirModalEditar = (u) => {
         setUsuarioEditandoId(u.id);
         setEditNombre(u.nombre || '');
@@ -352,7 +352,7 @@ export default function GestionUsuarios() {
                     </div>
                 )}
 
-                {/* MODAL DE NOTIFICACIÓN / ESTADO (ÉXITO O ERROR) */}
+                {/* MODAL DE NOTIFICACIÓN (ÉXITO O ERROR) */}
                 {notificacionModal.isOpen && (
                     <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 p-4 transition-all">
                         <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-gray-100 flex flex-col items-center text-center">

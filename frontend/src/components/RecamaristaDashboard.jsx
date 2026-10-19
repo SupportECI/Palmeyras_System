@@ -198,7 +198,6 @@ export default function RecamaristaDashboard() {
                 tipo_limpieza: tipo,
                 recamarista_id: usuario?.id,
                 checks: checks,
-                // Agrupamos las 3 fotos en un solo JSON en formato texto para guardarlo en la columna
                 foto_base64: JSON.stringify(fotos) 
             });
 
@@ -211,7 +210,6 @@ export default function RecamaristaDashboard() {
         }
     };
 
-    // Componente reutilizable para renderizar cada sección del formulario
     const renderSeccion = (seccion, checksState, setChecksState) => (
         <div key={seccion.id} className="mb-6 p-4 rounded-xl border border-gray-200 bg-gray-50/50 shadow-sm">
             <div className="flex items-center gap-2 mb-3 border-b border-gray-200 pb-2">

@@ -190,6 +190,24 @@ app.put('/api/habitaciones/:id/checkout', async (req, res) => {
     }
 });
 
+//Editar habitación (Admin)
+app.put('/api/habitaciones/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { num_habitacion, tipo, precio_base } = req.body;
+        
+        await db.query(
+            "UPDATE habitaciones SET num_habitacion = ?, tipo = ?, precio_base = ? WHERE id = ?",
+            [num_habitacion, tipo, precio_base, id]
+        );
+        
+        res.json({ success: true, message: "Habitación actualizada correctamente" });
+    } catch (error) {
+        console.error("Error al actualizar habitación:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // COMPLETAR LIMPIEZA Y GUARDAR FOTO BASE64 EN LA TABLA
 app.post('/api/habitaciones/:id/completar-limpieza', async (req, res) => {
     try {
@@ -371,10 +389,8 @@ app.get('/api/usuarios', async (req, res) => {
 
 app.post('/api/usuarios', async (req, res) => {
     try {
-        console.log("Datos recibidos en el backend:", req.body);
-
         const { nombre, correo, password, rol } = req.body;
-        const correoFinal = correo // Maneja ambos nombres de campo
+        const correoFinal = correo;
 
         if (!nombre || !correoFinal || !password || !rol) {
             return res.status(400).json({ success: false, message: "Todos los campos son obligatorios" });
@@ -448,7 +464,6 @@ app.get('/api/reportes/recepcion', async (req, res) => {
     try {
         const { periodo, fecha_inicio, fecha_fin } = req.query;
         
-        // Modificamos la consulta para hacer un JOIN con habitaciones y traer num_habitacion
         let query = `
             SELECT r.*, h.num_habitacion 
             FROM rentas r 

@@ -100,7 +100,6 @@ export default function AdminReportes() {
                 </header>
 
                 <div className="p-8 flex flex-col gap-6">
-                    {/* Barra de Filtros, Selector de Fechas tipo Calendario Flotante y Exportación */}
                     <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col xl:flex-row justify-between items-center gap-4">
                         <div className="flex items-center gap-2 w-full xl:w-auto">
                             <Filter className="w-5 h-5 text-indigo-600 shrink-0" />

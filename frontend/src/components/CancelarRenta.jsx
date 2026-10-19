@@ -19,7 +19,6 @@ export default function CancelarRenta() {
 
     const cargarReservasActivas = async () => {
         try {
-            // Utiliza el endpoint que ya tienes en tu backend para obtener las reservaciones/rentas activas
             const res = await api.get('/reservas/todas');
             setReservasActivas(res.data.reservaciones || []);
         } catch (error) {

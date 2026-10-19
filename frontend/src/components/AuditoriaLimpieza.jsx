@@ -39,7 +39,7 @@ export default function AuditoriaLimpiezas() {
         }
     };
 
-    // Función inteligente que convierte la base de datos (JSON o Base64) en un arreglo de fotos para el Slider
+    // Función inteligente que convierte la base de datos en un arreglo de fotos para el Slider
     const obtenerFotosArreglo = (fotoData) => {
         if (!fotoData) return [];
         try {
@@ -100,7 +100,7 @@ export default function AuditoriaLimpiezas() {
 
                 <div className="p-6 sm:p-8 max-w-5xl mx-auto w-full">
                     
-                    {/* Encabezado Principal adaptado a tu diseño */}
+                    {/* Encabezado Principal */}
                     <div className="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4">
                         <div>
                             <h2 className="text-2xl font-bold text-gray-900">
@@ -137,7 +137,7 @@ export default function AuditoriaLimpiezas() {
                                 return (
                                     <div key={item.id || index} className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col sm:flex-row gap-5 items-center sm:items-start transition hover:shadow-md">
                                         
-                                        {/* Thumbnail / Miniatura (Negro con ícono de ojo) */}
+                                        {/* Miniatura */}
                                         <div 
                                             className={`relative w-full sm:w-36 h-36 rounded-xl bg-black overflow-hidden shrink-0 group flex flex-col items-center justify-center ${miniatura ? 'cursor-pointer' : ''}`}
                                             onClick={() => miniatura && abrirSlider(fotosArreglo)}
@@ -159,7 +159,7 @@ export default function AuditoriaLimpiezas() {
                                             )}
                                         </div>
 
-                                        {/* Detalles a la derecha */}
+                                        {/* Detalles */}
                                         <div className="flex flex-col justify-center w-full py-1">
                                             <span className={`text-xs font-bold px-3 py-1.5 rounded-lg w-fit mb-3 ${
                                                 item.tipo_limpieza === 'POST_USO' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
@@ -196,7 +196,7 @@ export default function AuditoriaLimpiezas() {
 
                 </div>
 
-                {/* MODAL / SLIDER DE IMÁGENES */}
+                {/* SLIDER DE IMÁGENES */}
                 {sliderOpen && fotosSlider.length > 0 && (
                     <div className="fixed inset-0 bg-black/90 z-50 flex flex-col items-center justify-center backdrop-blur-sm">
                         

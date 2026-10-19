@@ -129,7 +129,7 @@ export default function SupervisorReportes() {
                                 </button>
                             </div>
 
-                            {/* Selector de Rango con Calendario Desplegable Nativo */}
+                            {/* Selector de Rango */}
                             <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl">
                                 <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
                                 <div className="flex items-center gap-2 text-xs text-gray-700">

@@ -10,7 +10,6 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
         const usuarioGuardado = localStorage.getItem('usuario');
         if (usuarioGuardado) {
             const parsedUser = JSON.parse(usuarioGuardado);
-            // Normalizamos el rol a minúsculas por seguridad
             setRolUsuario(parsedUser.rol ? parsedUser.rol.toLowerCase() : '');
         }
     }, []);

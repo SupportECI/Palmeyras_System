@@ -43,7 +43,7 @@ export default function SupervisorDashboard() {
         isOpen: false,
         habitacion: null,
         nuevoEstado: '',
-        motivo: '' // NUEVO ESTADO PARA EL MOTIVO
+        motivo: ''
     });
 
     /* Estados para filtrar búsquedas */
@@ -121,7 +121,7 @@ export default function SupervisorDashboard() {
         const { habitacion, nuevoEstado, motivo } = modalOperativo;
         if (!habitacion) return;
 
-        // Si es mantenimiento, validamos que se escriba un motivo opcional o requerido
+        // Si es mantenimiento, validamos que se escriba un motivo requerido
         if (nuevoEstado === 'MANTENIMIENTO' && !motivo.trim()) {
             alert('Por favor, especifica el motivo del mantenimiento.');
             return;
@@ -130,7 +130,7 @@ export default function SupervisorDashboard() {
         try {
             await api.put(`/habitaciones/${habitacion.id}/estado-operativo`, { 
                 estado: nuevoEstado, 
-                motivo: motivo // Enviamos el motivo al backend
+                motivo: motivo
             });
             setModalOperativo({ isOpen: false, habitacion: null, nuevoEstado: '', motivo: '' });
             obtenerHabitaciones();
@@ -383,7 +383,6 @@ export default function SupervisorDashboard() {
                     </div>
                 </div>
 
-                {/* MODAL ESTILIZADO DE CONFIRMACIÓN OPERATIVA CON CAMPO DE MOTIVO */}
                 {modalOperativo.isOpen && (
                     <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 p-4 transition-all">
                         <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-gray-100 flex flex-col items-center text-center">

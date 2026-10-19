@@ -145,7 +145,7 @@ export default function RecepcionDashboard() {
     const [modalRenovarOpen, setModalRenovarOpen] = useState(false);
     const [habitacionSeleccionada, setHabitacionSeleccionada] = useState(null);
     const [precioCobrado, setPrecioCobrado] = useState('');
-    const [descripcionVehiculo, setDescripcionVehiculo] = useState(''); // NUEVO ESTADO
+    const [descripcionVehiculo, setDescripcionVehiculo] = useState('');
 
     const [modalCheckoutOpen, setModalCheckoutOpen] = useState(false);
     const [habitacionCheckoutId, setHabitacionCheckoutId] = useState(null);
@@ -437,7 +437,7 @@ export default function RecepcionDashboard() {
                     </div>
                 </div>
 
-                {/* MODAL EXPRESS DE CHECK-IN */}
+                {/* MODAL DE CHECK-IN */}
                 {modalCheckinOpen && (
                     <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
                         <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-xl">
@@ -492,7 +492,7 @@ export default function RecepcionDashboard() {
                     </div>
                 )}
 
-                {/* MODAL EXPRESS DE RENOVACIÓN */}
+                {/* MODAL DE RENOVACIÓN */}
                 {modalRenovarOpen && (
                     <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
                         <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-xl">

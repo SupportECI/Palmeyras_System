@@ -13,18 +13,16 @@ export default function Login() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
-    // Función para sanitizar el correo (eliminar espacios y caracteres especiales no válidos para un email)
+    // Función para sanitizar el correo
     const handleCorreoChange = (e) => {
         const valor = e.target.value;
-        // Permite solo caracteres válidos para correos electrónicos en tiempo real
         const limpio = valor.replace(/[^a-zA-Z0-9@._-]/g, '');
         setCorreo(limpio);
     };
 
-    // Función para sanitizar la contraseña (restringe caracteres de control o inyecciones básicas)
+    // Función para sanitizar la contraseña
     const handlePasswordChange = (e) => {
         const valor = e.target.value;
-        // Evita espacios al inicio/final o caracteres extraños peligrosos si se desea
         setPassword(valor);
     };
 
@@ -58,7 +56,6 @@ export default function Login() {
 
             localStorage.setItem('usuario', JSON.stringify(usuario));
 
-            // Normalizamos a minúsculas por seguridad para evitar conflictos
             const rol = usuario.rol ? usuario.rol.toLowerCase() : '';
 
             switch(rol) {
