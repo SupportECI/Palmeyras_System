@@ -8,22 +8,28 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(cors());
 
-// Conexión a la base de datos mediante promesas
-let db;
-async function conectarBD() {
+// Conexión a la base de datos mediante pool
+const db = mysql.createPool({
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'hotel_palmeyras',
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
+});
+
+// Verificamos que el Pool responda correctamente al arrancar
+async function verificarConexion() {
     try {
-        db = await mysql.createConnection({
-            host: process.env.DB_HOST || 'localhost',
-            user: process.env.DB_USER || 'root',
-            password: process.env.DB_PASSWORD || '',
-            database: process.env.DB_NAME || 'hotel_palmeyras'
-        });
+        const connection = await db.getConnection();
         console.log("Conectado exitosamente a la base de datos de Hotel Palmeyras.");
+        connection.release();
     } catch (err) {
         console.error("Error al conectar a la base de datos:", err);
     }
 }
-conectarBD();
+verificarConexion();
 
 app.post('/api/login', async (req, res) => {
     try {
