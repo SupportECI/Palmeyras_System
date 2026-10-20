@@ -63,7 +63,7 @@ export default function GestionUsuarios() {
             setNuevoCorreo('');
             setNuevaPassword('');
             setNuevoRol('recepcion');
-            
+
             setNotificacionModal({
                 isOpen: true,
                 tipo: 'exito',
@@ -109,7 +109,7 @@ export default function GestionUsuarios() {
             setModalEditarOpen(false);
             setUsuarioEditandoId(null);
             setEditPassword('');
-            
+
             setNotificacionModal({
                 isOpen: true,
                 tipo: 'exito',
@@ -139,7 +139,7 @@ export default function GestionUsuarios() {
             await api.delete(`/usuarios/${usuarioEliminandoId}`);
             setModalEliminarOpen(false);
             setUsuarioEliminandoId(null);
-            
+
             setNotificacionModal({
                 isOpen: true,
                 tipo: 'exito',
@@ -160,10 +160,9 @@ export default function GestionUsuarios() {
         <div className="min-h-screen bg-gray-100 flex">
             <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} rol="admin" />
 
-            <div className={`flex-1 ${isCollapsed ? 'ml-20' : 'ml-64'} flex flex-col min-w-0 transition-all duration-300`}>
-                <header className="bg-white text-black flex items-center justify-between h-16 px-6 border-b border-gray-200">
-                    <h1 className="text-lg font-semibold text-gray-800">Gestión de Usuarios y Personal</h1>
-                </header>
+            <div className={`flex-1 ${isCollapsed ? 'ml-0 md:ml-20' : 'ml-0 md:ml-64'} flex flex-col min-w-0 transition-all duration-300 pb-24 md:pb-0`}>                <header className="bg-white text-black flex items-center justify-between h-16 px-6 border-b border-gray-200">
+                <h1 className="text-lg font-semibold text-gray-800">Gestión de Usuarios y Personal</h1>
+            </header>
 
                 <div className="p-6">
                     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
@@ -202,12 +201,11 @@ export default function GestionUsuarios() {
                                                 </td>
                                                 <td className="p-3 text-gray-500">{u.email || u.correo}</td>
                                                 <td className="p-3">
-                                                    <span className={`px-2.5 py-1 rounded-lg font-semibold text-xs uppercase ${
-                                                        u.rol?.toLowerCase() === 'admin' ? 'bg-red-50 text-red-700 border border-red-200' :
-                                                        u.rol?.toLowerCase() === 'supervisor' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-                                                        u.rol?.toLowerCase() === 'recepcion' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
-                                                        'bg-purple-50 text-purple-700 border border-purple-200'
-                                                    }`}>
+                                                    <span className={`px-2.5 py-1 rounded-lg font-semibold text-xs uppercase ${u.rol?.toLowerCase() === 'admin' ? 'bg-red-50 text-red-700 border border-red-200' :
+                                                            u.rol?.toLowerCase() === 'supervisor' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                                                                u.rol?.toLowerCase() === 'recepcion' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                                                                    'bg-purple-50 text-purple-700 border border-purple-200'
+                                                        }`}>
                                                         {u.rol}
                                                     </span>
                                                 </td>
@@ -356,10 +354,9 @@ export default function GestionUsuarios() {
                 {notificacionModal.isOpen && (
                     <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 p-4 transition-all">
                         <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-gray-100 flex flex-col items-center text-center">
-                            
-                            <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 ${
-                                notificacionModal.tipo === 'exito' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
-                            }`}>
+
+                            <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 ${notificacionModal.tipo === 'exito' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
+                                }`}>
                                 {notificacionModal.tipo === 'exito' ? (
                                     <CheckCircle2 className="w-6 h-6" />
                                 ) : (
@@ -378,9 +375,8 @@ export default function GestionUsuarios() {
                             <button
                                 type="button"
                                 onClick={() => setNotificacionModal({ isOpen: false, tipo: 'exito', mensaje: '' })}
-                                className={`w-full py-2.5 rounded-xl text-xs font-semibold text-white transition shadow-sm cursor-pointer ${
-                                    notificacionModal.tipo === 'exito' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'
-                                }`}
+                                className={`w-full py-2.5 rounded-xl text-xs font-semibold text-white transition shadow-sm cursor-pointer ${notificacionModal.tipo === 'exito' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'
+                                    }`}
                             >
                                 Aceptar
                             </button>

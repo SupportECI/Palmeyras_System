@@ -308,7 +308,7 @@ export default function RecepcionDashboard() {
 
             <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} rol="recepcion" />
 
-            <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${isCollapsed ? 'ml-20' : 'ml-64'}`}>
+            <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${isCollapsed ? 'ml-0 md:ml-20' : 'ml-0 md:ml-64'} pb-24 md:pb-0`}>
 
                 <header className="bg-white text-black flex items-center justify-between h-16 px-6 border-b border-gray-200 shadow-sm sticky top-0 z-20">
                     <h1 className="text-base sm:text-lg font-semibold text-gray-800 truncate">

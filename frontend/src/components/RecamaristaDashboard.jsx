@@ -74,10 +74,10 @@ export default function RecamaristaDashboard() {
 
     // Estado para guardar las 3 fotos por separado
     const [fotos, setFotos] = useState({ cama: null, bano: null, general: null });
-    
+
     // Controla qué sección tiene la cámara abierta ('cama' | 'bano' | 'general' | null)
-    const [camaraActiva, setCamaraActiva] = useState(null); 
-    
+    const [camaraActiva, setCamaraActiva] = useState(null);
+
     const videoRef = useRef(null);
     const mediaStreamRef = useRef(null);
 
@@ -87,7 +87,7 @@ export default function RecamaristaDashboard() {
     useEffect(() => {
         const usuarioGuardado = localStorage.getItem('usuario');
         if (usuarioGuardado) setNombreUsuario(JSON.parse(usuarioGuardado).nombre || JSON.parse(usuarioGuardado).correo);
-        
+
         cargarHabitacionesPendientes();
         const intervalo = setInterval(cargarHabitacionesPendientes, 30000);
         return () => {
@@ -106,7 +106,7 @@ export default function RecamaristaDashboard() {
     const cargarHabitacionesPendientes = async () => {
         try {
             const respuesta = await api.get('/habitaciones');
-            const filtradas = respuesta.data.habitaciones.filter(h => 
+            const filtradas = respuesta.data.habitaciones.filter(h =>
                 h.estado === 'LIBRE_SUCIA' || h.estado === 'LIMPIEZA_SEMANAL' || h.estado === 'MANTENIMIENTO'
             );
             setHabitacionesAtencion(filtradas);
@@ -119,9 +119,9 @@ export default function RecamaristaDashboard() {
     const iniciarCamara = async (seccionId) => {
         detenerCamara(); // Detener si había otra encendida
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }, 
-                audio: false 
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } },
+                audio: false
             });
             mediaStreamRef.current = stream;
             setCamaraActiva(seccionId);
@@ -198,7 +198,7 @@ export default function RecamaristaDashboard() {
                 tipo_limpieza: tipo,
                 recamarista_id: usuario?.id,
                 checks: checks,
-                foto_base64: JSON.stringify(fotos) 
+                foto_base64: JSON.stringify(fotos)
             });
 
             toast.success(`Limpieza ${tipo.toLowerCase()} registrada y habitación liberada.`);
@@ -216,7 +216,7 @@ export default function RecamaristaDashboard() {
                 <div className="p-1.5 bg-white rounded-lg shadow-sm text-purple-600">{seccion.icono}</div>
                 <h3 className="font-bold text-gray-800 text-sm">{seccion.titulo}</h3>
             </div>
-            
+
             <div className="flex flex-col gap-2 mb-4">
                 {seccion.items.map((item) => (
                     <label key={item.key} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 cursor-pointer transition">
@@ -237,17 +237,17 @@ export default function RecamaristaDashboard() {
                     <div className="relative w-full h-32 sm:h-40 rounded-xl overflow-hidden border border-gray-200 bg-black">
                         <img src={fotos[seccion.id]} alt="Evidencia" className="w-full h-full object-cover" />
                         <button type="button" onClick={() => reiniciarFoto(seccion.id)} className="absolute bottom-2 right-2 px-3 py-1.5 bg-gray-900/70 text-white rounded-lg text-xs font-medium flex items-center gap-1.5 backdrop-blur-sm hover:bg-gray-900 transition">
-                            <RefreshCw className="w-3.5 h-3.5"/> Rehacer
+                            <RefreshCw className="w-3.5 h-3.5" /> Rehacer
                         </button>
                     </div>
                 ) : camaraActiva === seccion.id ? (
                     <div className="relative w-full h-40 sm:h-48 rounded-xl overflow-hidden border border-gray-200 bg-black">
                         <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
                         <button type="button" onClick={() => tomarFoto(seccion.id)} className="absolute bottom-3 left-1/2 -translate-x-1/2 px-4 py-2 bg-purple-600 text-white rounded-full text-xs font-bold flex items-center gap-2 shadow-lg hover:bg-purple-700 transition">
-                            <Camera className="w-4 h-4"/> Capturar
+                            <Camera className="w-4 h-4" /> Capturar
                         </button>
                         <button type="button" onClick={detenerCamara} className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/80 transition text-white rounded-full">
-                            <X className="w-4 h-4"/>
+                            <X className="w-4 h-4" />
                         </button>
                     </div>
                 ) : (
@@ -265,11 +265,10 @@ export default function RecamaristaDashboard() {
             <Toaster position="bottom-right" reverseOrder={false} />
             <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} rol="recamarista" />
 
-            <div className={`flex-1 ${isCollapsed ? 'ml-20' : 'ml-64'} flex flex-col min-w-0 transition-all duration-300`}>
-                <header className="bg-white text-black flex items-center justify-between h-16 px-6 border-b border-gray-200">
-                    <h1 className="text-lg font-semibold text-gray-800">Panel de Recámara y Mantenimiento</h1>
-                    <span className="text-sm text-gray-600">Bienvenida, {nombreUsuario || "Recamarista"}</span>
-                </header>
+            <div className={`flex-1 ${isCollapsed ? 'ml-0 md:ml-20' : 'ml-0 md:ml-64'} flex flex-col min-w-0 transition-all duration-300 pb-24 md:pb-0`}>                <header className="bg-white text-black flex items-center justify-between h-16 px-6 border-b border-gray-200">
+                <h1 className="text-lg font-semibold text-gray-800">Panel de Recámara y Mantenimiento</h1>
+                <span className="text-sm text-gray-600">Bienvenida, {nombreUsuario || "Recamarista"}</span>
+            </header>
 
                 <div className="p-6">
                     <div className="mb-6 flex justify-between items-center">
@@ -289,11 +288,10 @@ export default function RecamaristaDashboard() {
                                     <div>
                                         <div className="flex justify-between items-center mb-3">
                                             <span className="font-bold text-lg text-gray-800">Hab. {h.num_habitacion}</span>
-                                            <span className={`px-3 py-1 text-xs font-semibold rounded-lg border ${
-                                                h.estado === 'LIBRE_SUCIA' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
-                                                h.estado === 'LIMPIEZA_SEMANAL' ? 'bg-blue-100 text-blue-800 border-blue-300' :
-                                                'bg-red-100 text-red-800 border-red-300'
-                                            }`}>
+                                            <span className={`px-3 py-1 text-xs font-semibold rounded-lg border ${h.estado === 'LIBRE_SUCIA' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
+                                                    h.estado === 'LIMPIEZA_SEMANAL' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                                                        'bg-red-100 text-red-800 border-red-300'
+                                                }`}>
                                                 {h.estado === 'LIBRE_SUCIA' ? 'Vacia Sucia' : h.estado === 'LIMPIEZA_SEMANAL' ? 'Semanal' : 'Mantenimiento'}
                                             </span>
                                         </div>
@@ -363,10 +361,10 @@ export default function RecamaristaDashboard() {
                                 )}
                                 <div className="flex justify-end gap-2">
                                     <button type="button" onClick={cerrarModales} className="px-5 py-2.5 bg-white border border-gray-300 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 cursor-pointer">Cancelar</button>
-                                    <button 
-                                        type="button" 
-                                        onClick={(e) => { e.preventDefault(); guardarLimpieza('POST_USO', checksPostUso); }} 
-                                        disabled={!todosPostUsoSeleccionados} 
+                                    <button
+                                        type="button"
+                                        onClick={(e) => { e.preventDefault(); guardarLimpieza('POST_USO', checksPostUso); }}
+                                        disabled={!todosPostUsoSeleccionados}
                                         className={`px-5 py-2.5 rounded-xl text-xs font-bold text-white transition ${todosPostUsoSeleccionados ? 'bg-purple-600 hover:bg-purple-700 cursor-pointer shadow-md' : 'bg-gray-300 cursor-not-allowed'}`}
                                     >
                                         Liberar Habitación
@@ -409,10 +407,10 @@ export default function RecamaristaDashboard() {
                                 )}
                                 <div className="flex justify-end gap-2">
                                     <button type="button" onClick={cerrarModales} className="px-5 py-2.5 bg-white border border-gray-300 rounded-xl text-xs font-bold text-gray-700 hover:bg-gray-50 cursor-pointer">Cancelar</button>
-                                    <button 
-                                        type="button" 
-                                        onClick={(e) => { e.preventDefault(); guardarLimpieza('SEMANAL', checksSemanal); }} 
-                                        disabled={!todosSemanalSeleccionados} 
+                                    <button
+                                        type="button"
+                                        onClick={(e) => { e.preventDefault(); guardarLimpieza('SEMANAL', checksSemanal); }}
+                                        disabled={!todosSemanalSeleccionados}
                                         className={`px-5 py-2.5 rounded-xl text-xs font-bold text-white transition ${todosSemanalSeleccionados ? 'bg-blue-600 hover:bg-blue-700 cursor-pointer shadow-md' : 'bg-gray-300 cursor-not-allowed'}`}
                                     >
                                         Liberar Habitación

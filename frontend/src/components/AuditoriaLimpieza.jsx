@@ -6,10 +6,10 @@ import { User, Calendar, Eye, X, ChevronLeft, ChevronRight, ShieldCheck, Search 
 export default function AuditoriaLimpiezas() {
     const [nombreUsuario, setNombreUsuario] = useState('');
     const [isCollapsed, setIsCollapsed] = useState(false);
-    
+
     const [historial, setHistorial] = useState([]);
     const [loading, setLoading] = useState(false);
-    
+
     // Filtros
     const [filtroHabitacion, setFiltroHabitacion] = useState('');
 
@@ -29,7 +29,7 @@ export default function AuditoriaLimpiezas() {
     const cargarHistorial = async () => {
         setLoading(true);
         try {
-            const res = await api.get('/limpiezas/historial'); 
+            const res = await api.get('/limpiezas/historial');
             const data = res.data.limpiezas || res.data;
             setHistorial(data);
         } catch (error) {
@@ -89,17 +89,16 @@ export default function AuditoriaLimpiezas() {
         <div className="min-h-screen bg-gray-50 flex font-sans">
             <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} rol="admin" />
 
-            <div className={`flex-1 ${isCollapsed ? 'ml-20' : 'ml-64'} flex flex-col min-w-0 transition-all duration-300`}>
-                <header className="bg-white text-black flex items-center justify-between h-16 px-6 border-b border-gray-200 shadow-sm sticky top-0 z-10">
-                    <div className="flex items-center gap-2">
-                        <ShieldCheck className="w-5 h-5 text-blue-600" />
-                        <h1 className="text-lg font-semibold text-gray-800">Panel de Auditoría</h1>
-                    </div>
-                    <span className="text-sm text-gray-600 font-medium">{nombreUsuario || "Administrador"}</span>
-                </header>
+            <div className={`flex-1 ${isCollapsed ? 'ml-0 md:ml-20' : 'ml-0 md:ml-64'} flex flex-col min-w-0 transition-all duration-300 pb-24 md:pb-0`}>                <header className="bg-white text-black flex items-center justify-between h-16 px-6 border-b border-gray-200 shadow-sm sticky top-0 z-10">
+                <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-blue-600" />
+                    <h1 className="text-lg font-semibold text-gray-800">Panel de Auditoría</h1>
+                </div>
+                <span className="text-sm text-gray-600 font-medium">{nombreUsuario || "Administrador"}</span>
+            </header>
 
                 <div className="p-6 sm:p-8 max-w-5xl mx-auto w-full">
-                    
+
                     {/* Encabezado Principal */}
                     <div className="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4">
                         <div>
@@ -110,11 +109,11 @@ export default function AuditoriaLimpiezas() {
                                 Registro fotográfico y bitácora de limpiezas realizadas en el día.
                             </p>
                         </div>
-                        
+
                         {/* Buscador de habitación */}
                         <div className="relative w-full sm:w-64">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                            <input 
+                            <input
                                 type="text"
                                 placeholder="Buscar Hab. (Ej. 102)"
                                 value={filtroHabitacion}
@@ -136,9 +135,9 @@ export default function AuditoriaLimpiezas() {
 
                                 return (
                                     <div key={item.id || index} className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col sm:flex-row gap-5 items-center sm:items-start transition hover:shadow-md">
-                                        
+
                                         {/* Miniatura */}
-                                        <div 
+                                        <div
                                             className={`relative w-full sm:w-36 h-36 rounded-xl bg-black overflow-hidden shrink-0 group flex flex-col items-center justify-center ${miniatura ? 'cursor-pointer' : ''}`}
                                             onClick={() => miniatura && abrirSlider(fotosArreglo)}
                                         >
@@ -161,12 +160,11 @@ export default function AuditoriaLimpiezas() {
 
                                         {/* Detalles */}
                                         <div className="flex flex-col justify-center w-full py-1">
-                                            <span className={`text-xs font-bold px-3 py-1.5 rounded-lg w-fit mb-3 ${
-                                                item.tipo_limpieza === 'POST_USO' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-                                            }`}>
+                                            <span className={`text-xs font-bold px-3 py-1.5 rounded-lg w-fit mb-3 ${item.tipo_limpieza === 'POST_USO' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                                                }`}>
                                                 {item.tipo_limpieza === 'POST_USO' ? 'Limpieza Post-Uso' : 'Limpieza Semanal'}
                                             </span>
-                                            
+
                                             <div className="flex flex-col gap-2">
                                                 <div className="text-sm text-gray-800 flex items-center gap-2">
                                                     <User className="w-4 h-4 text-gray-500 shrink-0" />
@@ -199,7 +197,7 @@ export default function AuditoriaLimpiezas() {
                 {/* SLIDER DE IMÁGENES */}
                 {sliderOpen && fotosSlider.length > 0 && (
                     <div className="fixed inset-0 bg-black/90 z-50 flex flex-col items-center justify-center backdrop-blur-sm">
-                        
+
                         <div className="absolute top-0 w-full p-4 flex justify-between items-center z-50 bg-gradient-to-b from-black/80 to-transparent">
                             <span className="text-white font-bold text-sm bg-black/50 px-3 py-1.5 rounded-lg border border-white/10">
                                 {fotosSlider[fotoIndex].etiqueta} ({fotoIndex + 1} de {fotosSlider.length})
@@ -216,9 +214,9 @@ export default function AuditoriaLimpiezas() {
                         )}
 
                         <div className="relative w-full max-w-4xl max-h-[80vh] flex items-center justify-center px-12">
-                            <img 
-                                src={fotosSlider[fotoIndex].url} 
-                                alt={fotosSlider[fotoIndex].etiqueta} 
+                            <img
+                                src={fotosSlider[fotoIndex].url}
+                                alt={fotosSlider[fotoIndex].etiqueta}
                                 className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl transition-opacity duration-300"
                             />
                         </div>
@@ -228,13 +226,13 @@ export default function AuditoriaLimpiezas() {
                                 <ChevronRight className="w-6 h-6 sm:w-8 sm:h-8" />
                             </button>
                         )}
-                        
+
                         {fotosSlider.length > 1 && (
                             <div className="absolute bottom-6 flex gap-2">
                                 {fotosSlider.map((_, i) => (
-                                    <div 
-                                        key={i} 
-                                        className={`w-2.5 h-2.5 rounded-full transition-all ${i === fotoIndex ? 'bg-white scale-125' : 'bg-white/40'}`} 
+                                    <div
+                                        key={i}
+                                        className={`w-2.5 h-2.5 rounded-full transition-all ${i === fotoIndex ? 'bg-white scale-125' : 'bg-white/40'}`}
                                     />
                                 ))}
                             </div>

@@ -6,7 +6,7 @@ import { DollarSign, FileText, Filter, BedDouble, ShieldCheck, Calendar, Downloa
 export default function AdminReportes() {
     const [nombreUsuario, setNombreUsuario] = useState('');
     const [isCollapsed, setIsCollapsed] = useState(false);
-    
+
     // Estados del reporte y rango de fechas
     const [periodo, setPeriodo] = useState('dia');
     const [fechaInicio, setFechaInicio] = useState('');
@@ -91,7 +91,7 @@ export default function AdminReportes() {
         <div className="min-h-screen bg-gray-100 flex font-sans">
             <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
 
-            <div className={`flex-1 ${isCollapsed ? 'ml-20' : 'ml-64'} flex flex-col min-w-0 transition-all duration-300`}>
+            <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${isCollapsed ? 'ml-0 md:ml-20' : 'ml-0 md:ml-64'} pb-24 md:pb-0`}>
                 <header className="bg-white text-black flex items-center justify-between h-16 px-6 border-b border-gray-200 shadow-sm">
                     <h1 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
                         <ShieldCheck className="w-5 h-5 text-indigo-600" /> Reportes Financieros y Administrativos
@@ -100,69 +100,72 @@ export default function AdminReportes() {
                 </header>
 
                 <div className="p-8 flex flex-col gap-6">
-                    <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col xl:flex-row justify-between items-center gap-4">
-                        <div className="flex items-center gap-2 w-full xl:w-auto">
+                    <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col gap-4">
+                        <div className="flex items-center gap-2">
                             <Filter className="w-5 h-5 text-indigo-600 shrink-0" />
                             <h3 className="font-bold text-gray-800 text-sm">Corte Financiero por:</h3>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto justify-end">
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => cargarReporte('dia')}
-                                    className={`px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${periodo === 'dia' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                                >
-                                    Hoy
-                                </button>
-                                <button
-                                    onClick={() => cargarReporte('semana')}
-                                    className={`px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${periodo === 'semana' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                                >
-                                    Semana
-                                </button>
-                                <button
-                                    onClick={() => cargarReporte('mes')}
-                                    className={`px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${periodo === 'mes' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                                >
-                                    Mes
-                                </button>
-                            </div>
+                        {/* Botones de Período (Hoy, Semana, Mes) */}
+                        <div className="grid grid-cols-3 gap-2 w-full">
+                            <button
+                                onClick={() => cargarReporte('dia')}
+                                className={`py-2 rounded-xl text-xs font-semibold transition cursor-pointer text-center ${periodo === 'dia' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                            >
+                                Hoy
+                            </button>
+                            <button
+                                onClick={() => cargarReporte('semana')}
+                                className={`py-2 rounded-xl text-xs font-semibold transition cursor-pointer text-center ${periodo === 'semana' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                            >
+                                Semana
+                            </button>
+                            <button
+                                onClick={() => cargarReporte('mes')}
+                                className={`py-2 rounded-xl text-xs font-semibold transition cursor-pointer text-center ${periodo === 'mes' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                            >
+                                Mes
+                            </button>
+                        </div>
 
-                            {/* Selector de Rango */}
-                            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl">
-                                <Calendar className="w-4 h-4 text-indigo-600 shrink-0" />
-                                <div className="flex items-center gap-2 text-xs text-gray-700">
-                                    <span className="font-medium text-gray-500">De:</span>
-                                    <input 
+                        {/* Selector de Rango de Fechas (Apilado vertical en móviles) */}
+                        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 bg-gray-50 border border-gray-200 p-3 rounded-2xl w-full">
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full">
+                                <div className="flex items-center gap-2 w-full">
+                                    <Calendar className="w-4 h-4 text-indigo-600 shrink-0 hidden sm:block" />
+                                    <span className="font-bold text-gray-600 shrink-0 w-6">De:</span>
+                                    <input
                                         type="date"
                                         value={fechaInicio}
                                         onChange={(e) => setFechaInicio(e.target.value)}
-                                        className="bg-white border border-gray-300 rounded-lg px-2 py-1 font-medium text-gray-700 outline-none focus:border-indigo-600 cursor-pointer shadow-2xs"
+                                        className="w-full bg-white border border-gray-300 rounded-xl px-2.5 py-2 font-medium text-gray-700 outline-none focus:border-indigo-600 shadow-2xs text-xs"
                                     />
-                                    <span className="font-medium text-gray-500">A:</span>
-                                    <input 
+                                </div>
+                                <div className="flex items-center gap-2 w-full">
+                                    <span className="font-bold text-gray-600 shrink-0 w-6">A:</span>
+                                    <input
                                         type="date"
                                         value={fechaFin}
                                         onChange={(e) => setFechaFin(e.target.value)}
-                                        className="bg-white border border-gray-300 rounded-lg px-2 py-1 font-medium text-gray-700 outline-none focus:border-indigo-600 cursor-pointer shadow-2xs"
+                                        className="w-full bg-white border border-gray-300 rounded-xl px-2.5 py-2 font-medium text-gray-700 outline-none focus:border-indigo-600 shadow-2xs text-xs"
                                     />
                                 </div>
-                                <button
-                                    onClick={handleBuscarRango}
-                                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ml-1 shadow-2xs"
-                                >
-                                    Filtrar
-                                </button>
                             </div>
-
-                            {/* Botón de Exportar a Excel */}
                             <button
-                                onClick={exportarAExcel}
-                                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
+                                onClick={handleBuscarRango}
+                                className="w-full lg:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer shadow-2xs shrink-0"
                             >
-                                <Download className="w-4 h-4" /> Exportar Excel
+                                Filtrar Rango
                             </button>
                         </div>
+
+                        {/* Botón de Exportar a Excel */}
+                        <button
+                            onClick={exportarAExcel}
+                            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                        >
+                            <Download className="w-4 h-4" /> Exportar Reporte a Excel
+                        </button>
                     </div>
 
                     {/* Tarjetas de Resumen */}

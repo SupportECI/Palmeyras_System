@@ -92,11 +92,10 @@ export default function RecepcionReportes() {
         <div className="min-h-screen bg-gray-100 flex font-sans">
             <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} rol="recepcion" />
 
-            <div className={`flex-1 ${isCollapsed ? 'ml-20' : 'ml-64'} flex flex-col min-w-0 transition-all duration-300`}>
-                <header className="bg-white text-black flex items-center justify-between h-16 px-6 border-b border-gray-200 shadow-sm">
-                    <h1 className="text-lg font-semibold text-gray-800">Reportes de Recepción - Control de Estancias</h1>
-                    <span className="text-sm text-gray-600">Bienvenido, {nombreUsuario || "Recepcionista"}</span>
-                </header>
+            <div className={`flex-1 ${isCollapsed ? 'ml-0 md:ml-20' : 'ml-0 md:ml-64'} flex flex-col min-w-0 transition-all duration-300 pb-24 md:pb-0`}>                <header className="bg-white text-black flex items-center justify-between h-16 px-6 border-b border-gray-200 shadow-sm">
+                <h1 className="text-lg font-semibold text-gray-800">Reportes de Recepción - Control de Estancias</h1>
+                <span className="text-sm text-gray-600">Bienvenido, {nombreUsuario || "Recepcionista"}</span>
+            </header>
 
                 <div className="p-8 flex flex-col gap-6">
                     {/* Barra de Filtros, Selector de Fechas y Exportación */}
@@ -133,14 +132,14 @@ export default function RecepcionReportes() {
                                 <Calendar className="w-4 h-4 text-red-600 shrink-0" />
                                 <div className="flex items-center gap-2 text-xs text-gray-700">
                                     <span className="font-medium text-gray-500">De:</span>
-                                    <input 
+                                    <input
                                         type="date"
                                         value={fechaInicio}
                                         onChange={(e) => setFechaInicio(e.target.value)}
                                         className="bg-white border border-gray-300 rounded-lg px-2 py-1 font-medium text-gray-700 outline-none focus:border-red-600 cursor-pointer shadow-2xs"
                                     />
                                     <span className="font-medium text-gray-500">A:</span>
-                                    <input 
+                                    <input
                                         type="date"
                                         value={fechaFin}
                                         onChange={(e) => setFechaFin(e.target.value)}

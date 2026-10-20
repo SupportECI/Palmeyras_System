@@ -97,9 +97,9 @@ export default function AdminDashboard() {
         }
 
         try {
-            await api.put(`/habitaciones/${habitacionSeleccionadaId}/estado`, { 
+            await api.put(`/habitaciones/${habitacionSeleccionadaId}/estado`, {
                 estado: 'MANTENIMIENTO',
-                motivo: motivoMantenimiento 
+                motivo: motivoMantenimiento
             });
             setModalMantenimientoOpen(false);
             setHabitacionSeleccionadaId(null);
@@ -168,7 +168,7 @@ export default function AdminDashboard() {
 
     const eliminarHabitacion = async () => {
         if (!habitacionAEliminar) return;
-        
+
         const idHabitacion = habitacionAEliminar.id;
         setIdBorrando(idHabitacion);
         setModalEliminarOpen(false);
@@ -207,11 +207,10 @@ export default function AdminDashboard() {
         <div className="min-h-screen bg-gray-100 flex">
             <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
 
-            <div className={`flex-1 ${isCollapsed ? 'ml-20' : 'ml-64'} flex flex-col min-w-0 transition-all duration-300`}>
-                <header className="bg-white text-black flex items-center justify-between h-16 px-6 border-b border-gray-200">
-                    <h1 className="text-lg font-semibold text-gray-800">Panel de Administrador (Control Total)</h1>
-                    <span className="text-sm text-gray-600">Bienvenido, {nombreUsuario || "Administrador"}</span>
-                </header>
+            <div className={`flex-1 ${isCollapsed ? 'ml-0 md:ml-20' : 'ml-0 md:ml-64'} flex flex-col min-w-0 transition-all duration-300 pb-24 md:pb-0`}>                <header className="bg-white text-black flex items-center justify-between h-16 px-6 border-b border-gray-200">
+                <h1 className="text-lg font-semibold text-gray-800">Panel de Administrador (Control Total)</h1>
+                <span className="text-sm text-gray-600">Bienvenido, {nombreUsuario || "Administrador"}</span>
+            </header>
 
                 {/* TARJETAS DE RESUMEN */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 py-8 px-5">
@@ -278,7 +277,7 @@ export default function AdminDashboard() {
                                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500"
                             />
                         </div>
-                        
+
                         <div className="flex flex-wrap gap-2 w-full md:w-auto">
                             <button onClick={() => setFiltroEstado('TODOS')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'TODOS' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Todas</button>
                             <button onClick={() => setFiltroEstado('DISPONIBLES')} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${filtroEstado === 'DISPONIBLES' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-700 hover:bg-green-100'}`}>Vacia Limpia</button>
@@ -300,13 +299,12 @@ export default function AdminDashboard() {
                                         <select
                                             value={h.estado}
                                             onChange={(e) => cambiarEstadoHabitacion(h.id, e.target.value)}
-                                            className={`px-2 py-1 text-xs font-semibold rounded-lg border outline-none cursor-pointer transition ${
-                                                h.estado === 'LIBRE_LIMPIA' ? 'bg-green-100 text-green-700 border-green-300' :
-                                                h.estado === 'LIBRE_SUCIA' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
-                                                h.estado === 'OCUPADA' ? 'bg-red-100 text-red-700 border-red-300' :
-                                                h.estado === 'MANTENIMIENTO' ? 'bg-purple-100 text-purple-700 border-purple-300' :
-                                                'bg-amber-100 text-amber-700 border-amber-300'
-                                            }`}
+                                            className={`px-2 py-1 text-xs font-semibold rounded-lg border outline-none cursor-pointer transition ${h.estado === 'LIBRE_LIMPIA' ? 'bg-green-100 text-green-700 border-green-300' :
+                                                    h.estado === 'LIBRE_SUCIA' ? 'bg-yellow-100 text-yellow-700 border-yellow-300' :
+                                                        h.estado === 'OCUPADA' ? 'bg-red-100 text-red-700 border-red-300' :
+                                                            h.estado === 'MANTENIMIENTO' ? 'bg-purple-100 text-purple-700 border-purple-300' :
+                                                                'bg-amber-100 text-amber-700 border-amber-300'
+                                                }`}
                                         >
                                             <option value="LIBRE_LIMPIA">Vacia Limpia</option>
                                             <option value="LIBRE_SUCIA">Vacia Sucia</option>
@@ -322,16 +320,16 @@ export default function AdminDashboard() {
 
                                 {/* BOTONES DE EDITAR Y ELIMINAR */}
                                 <div className="mt-4 pt-2 border-t border-gray-100 flex justify-end gap-1">
-                                    <button 
-                                        onClick={() => abrirModalEditar(h)} 
-                                        className="p-1.5 text-orange-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition cursor-pointer" 
+                                    <button
+                                        onClick={() => abrirModalEditar(h)}
+                                        className="p-1.5 text-orange-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition cursor-pointer"
                                         title="Editar habitación"
                                     >
                                         <Edit className="w-4 h-4" />
                                     </button>
-                                    <button 
-                                        onClick={() => abrirModalEliminar(h)} 
-                                        className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer" 
+                                    <button
+                                        onClick={() => abrirModalEliminar(h)}
+                                        className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
                                         title="Eliminar habitación"
                                     >
                                         <Trash className="w-4 h-4" />
@@ -350,47 +348,47 @@ export default function AdminDashboard() {
                             <form onSubmit={handleEditarHabitacion} className="flex flex-col gap-4">
                                 <div>
                                     <label className="text-xs font-semibold text-gray-600 block mb-1">Número de Habitación</label>
-                                    <input 
-                                        type="text" 
-                                        value={editNumHabitacion} 
-                                        onChange={(e) => setEditNumHabitacion(e.target.value)} 
-                                        className="w-full border border-gray-300 p-2.5 rounded-xl text-sm outline-none focus:border-blue-500" 
-                                        required 
+                                    <input
+                                        type="text"
+                                        value={editNumHabitacion}
+                                        onChange={(e) => setEditNumHabitacion(e.target.value)}
+                                        className="w-full border border-gray-300 p-2.5 rounded-xl text-sm outline-none focus:border-blue-500"
+                                        required
                                     />
                                 </div>
                                 <div>
                                     <label className="text-xs font-semibold text-gray-600 block mb-1">Tipo</label>
-                                    <input 
-                                        type="text" 
-                                        value={editTipo} 
-                                        onChange={(e) => setEditTipo(e.target.value)} 
-                                        className="w-full border border-gray-300 p-2.5 rounded-xl text-sm outline-none focus:border-blue-500" 
-                                        required 
+                                    <input
+                                        type="text"
+                                        value={editTipo}
+                                        onChange={(e) => setEditTipo(e.target.value)}
+                                        className="w-full border border-gray-300 p-2.5 rounded-xl text-sm outline-none focus:border-blue-500"
+                                        required
                                     />
                                 </div>
                                 <div>
                                     <label className="text-xs font-semibold text-gray-600 block mb-1">Precio Base ($)</label>
-                                    <input 
-                                        type="number" 
-                                        value={editPrecioBase} 
-                                        onChange={(e) => setEditPrecioBase(e.target.value)} 
-                                        className="w-full border border-gray-300 p-2.5 rounded-xl text-sm outline-none focus:border-blue-500" 
-                                        required 
+                                    <input
+                                        type="number"
+                                        value={editPrecioBase}
+                                        onChange={(e) => setEditPrecioBase(e.target.value)}
+                                        className="w-full border border-gray-300 p-2.5 rounded-xl text-sm outline-none focus:border-blue-500"
+                                        required
                                     />
                                 </div>
                                 <div className="flex justify-end gap-2 mt-4">
-                                    <button 
-                                        type="button" 
+                                    <button
+                                        type="button"
                                         onClick={() => {
                                             setModalEditarOpen(false);
                                             setHabitacionAEditar(null);
-                                        }} 
+                                        }}
                                         className="px-4 py-2 border border-gray-300 rounded-xl text-xs font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer"
                                     >
                                         Cancelar
                                     </button>
-                                    <button 
-                                        type="submit" 
+                                    <button
+                                        type="submit"
                                         className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 cursor-pointer shadow-sm"
                                     >
                                         Guardar Cambios
@@ -414,19 +412,19 @@ export default function AdminDashboard() {
                             </p>
 
                             <div className="flex justify-center gap-3 w-full">
-                                <button 
-                                    type="button" 
+                                <button
+                                    type="button"
                                     onClick={() => {
                                         setModalEliminarOpen(false);
                                         setHabitacionAEliminar(null);
-                                    }} 
+                                    }}
                                     className="flex-1 px-4 py-2.5 border border-gray-300 text-xs font-semibold text-gray-700 rounded-xl hover:bg-gray-50 cursor-pointer"
                                 >
                                     Cancelar
                                 </button>
-                                <button 
-                                    type="button" 
-                                    onClick={eliminarHabitacion} 
+                                <button
+                                    type="button"
+                                    onClick={eliminarHabitacion}
                                     className="flex-1 px-4 py-2.5 bg-red-600 text-white text-xs font-semibold rounded-xl hover:bg-red-700 cursor-pointer shadow-sm"
                                 >
                                     Sí, eliminar
@@ -455,18 +453,18 @@ export default function AdminDashboard() {
                                     required
                                 />
                                 <div className="flex justify-end gap-2">
-                                    <button 
-                                        type="button" 
+                                    <button
+                                        type="button"
                                         onClick={() => {
                                             setModalMantenimientoOpen(false);
                                             setHabitacionSeleccionadaId(null);
-                                        }} 
+                                        }}
                                         className="px-4 py-2 border border-gray-300 text-xs font-semibold text-gray-700 rounded-xl hover:bg-gray-50 cursor-pointer"
                                     >
                                         Cancelar
                                     </button>
-                                    <button 
-                                        type="submit" 
+                                    <button
+                                        type="submit"
                                         className="px-4 py-2 bg-purple-600 text-white text-xs font-semibold rounded-xl hover:bg-purple-700 cursor-pointer shadow-sm"
                                     >
                                         Confirmar Mantenimiento
