@@ -8,7 +8,9 @@ const app = express();
 app.use(express.json({ limit: '10mb' })); 
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(cors());
-app.use(express.static(path.join(__dirname, 'dist')));
+
+const rutaFrontend = '/home/u305085050/domains/syspal.eurocentrodeidiomas.com/public_html';
+app.use(express.static(rutaFrontend));
 
 // Conexión a la base de datos mediante pool
 const db = mysql.createPool({
@@ -527,7 +529,7 @@ app.get('/api/limpiezas/historial', async (req, res) => {
 });
 
 app.use((req, res) => {
-    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+    res.sendFile(path.join(rutaFrontend, 'index.html'));
 });
 
 // Iniciar servidor en puerto 4000
