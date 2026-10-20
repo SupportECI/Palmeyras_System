@@ -13,10 +13,10 @@ let db;
 async function conectarBD() {
     try {
         db = await mysql.createConnection({
-            host: 'localhost',
-            user: 'root',
-            password: '',
-            database: 'hotel_palmeyras'
+            host: process.env.DB_HOST || 'localhost',
+            user: process.env.DB_USER || 'root',
+            password: process.env.DB_PASSWORD || '',
+            database: process.env.DB_NAME || 'hotel_palmeyras'
         });
         console.log("Conectado exitosamente a la base de datos de Hotel Palmeyras.");
     } catch (err) {
