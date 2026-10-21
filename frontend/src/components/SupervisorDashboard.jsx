@@ -128,8 +128,8 @@ export default function SupervisorDashboard() {
         }
 
         try {
-            await api.put(`/habitaciones/${habitacion.id}/estado-operativo`, { 
-                estado: nuevoEstado, 
+            await api.put(`/habitaciones/${habitacion.id}/estado-operativo`, {
+                estado: nuevoEstado,
                 motivo: motivo
             });
             setModalOperativo({ isOpen: false, habitacion: null, nuevoEstado: '', motivo: '' });
@@ -180,17 +180,16 @@ export default function SupervisorDashboard() {
         <div className="min-h-screen bg-gray-100 flex">
             <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
 
-            <div className={`flex-1 ${isCollapsed ? 'ml-20' : 'ml-64'} flex flex-col min-w-0 transition-all duration-300`}>
-                <header className="bg-white text-black flex items-center justify-between h-16 px-6 border-b border-gray-200">
-                    <div>
-                        <h1 className="text-lg font-semibold text-gray-800">Panel de Supervisor</h1>
-                    </div>
-                    <div className="flex items-center gap-4 ml-auto">
-                        <span className="text-md text-gray-800">
-                            {nombreUsuario ? `Bienvenido, ${nombreUsuario}` : "Cargando..."}
-                        </span>
-                    </div>
-                </header>
+            <div className={`flex-1 ${isCollapsed ? 'ml-0 md:ml-20' : 'ml-0 md:ml-64'} flex flex-col min-w-0 transition-all duration-300 pb-24 md:pb-0`}>                <header className="bg-white text-black flex items-center justify-between h-16 px-6 border-b border-gray-200">
+                <div>
+                    <h1 className="text-lg font-semibold text-gray-800">Panel de Supervisor</h1>
+                </div>
+                <div className="flex items-center gap-4 ml-auto">
+                    <span className="text-md text-gray-800">
+                        {nombreUsuario ? `Bienvenido, ${nombreUsuario}` : "Cargando..."}
+                    </span>
+                </div>
+            </header>
 
                 {/* TARJETAS RESUMEN */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 py-8 px-5">
@@ -314,7 +313,7 @@ export default function SupervisorDashboard() {
                                                         h.estado === 'RESERVADA' ? 'bg-blue-100 text-blue-700 border-blue-300' :
                                                             h.estado === 'MANTENIMIENTO' ? 'bg-red-200 text-red-800 border-red-400 font-bold' :
                                                                 'bg-blue-200 text-blue-800 border-blue-400 font-bold'
-                                            }`}>
+                                                }`}>
                                                 {h.estado === 'LIBRE_LIMPIA' ? 'Vacia Limpia' :
                                                     h.estado === 'LIBRE_SUCIA' ? 'Vacia Sucia' :
                                                         h.estado === 'OCUPADA' ? 'Ocupada' :
@@ -329,7 +328,7 @@ export default function SupervisorDashboard() {
                                         {/* ACCIONES RÁPIDAS DEL SUPERVISOR */}
                                         <div className="flex flex-col gap-1.5 pt-2 border-t border-gray-100">
                                             <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide">Acciones del Supervisor:</p>
-                                            
+
                                             {(h.estado === 'LIBRE_LIMPIA' || h.estado === 'LIBRE_SUCIA' || h.estado === 'MANTENIMIENTO' || h.estado === 'LIMPIEZA_SEMANAL') ? (
                                                 <div className="grid grid-cols-2 gap-2">
                                                     {h.estado !== 'MANTENIMIENTO' ? (
