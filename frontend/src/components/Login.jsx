@@ -1,4 +1,4 @@
-import palmeyras from '../assets/palmeyras.webp';
+import conquistador from '../assets/logo.svg';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
@@ -90,8 +90,8 @@ export default function Login() {
     return (
         <div className="h-screen w-full flex overflow-hidden bg-white">
             {/* Imagen lateral */}
-            <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 h-full bg-gray-600/95 overflow-hidden items-center justify-center">
-                <img src={palmeyras} alt="palmeyras" className="h-full w-full object-cover" />
+            <div className="hidden lg:flex lg:w-1/2 xl:w-3/5 h-full bg-gray-900/95 overflow-hidden items-center justify-center">
+                <img src={conquistador} alt="conquistador" className="w-90 h-90" />
             </div>
 
             <div className="w-full lg:w-1/2 xl:w-2/5 h-full flex flex-col items-center justify-center px-6 sm:px-10 md:px-16 py-4 overflow-y-auto">
@@ -150,7 +150,7 @@ export default function Login() {
                         <p className='text-red-600 text-xs mt-2 text-center'>{error}</p>
                     )}
 
-                    <button type='submit' className='mt-5 w-full h-10 rounded-full text-white bg-[#E31D1E] hover:opacity-90 transition-opacity cursor-pointer font-medium text-sm'>
+                    <button type='submit' className='mt-5 w-full h-10 rounded-full text-white bg-[#FF0000] hover:opacity-90 transition-opacity cursor-pointer font-medium text-sm'>
                         {loading ? 'Ingresando...' : 'Ingresar'}
                     </button>
                 </form>
