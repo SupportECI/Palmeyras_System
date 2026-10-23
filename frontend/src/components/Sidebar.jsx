@@ -40,9 +40,7 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
 
     return (
         <>
-            {/* =========================================================
-              1. BARRA INFERIOR PARA MÓVILES (Solo iconos, fija abajo)
-              ========================================================= */}
+            {/* Movil */}
             <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-gray-200 z-50 flex items-center justify-around px-2 shadow-lg">
                 <Link
                     to={obtenerRutaDashboard()}
@@ -92,13 +90,11 @@ export default function Sidebar({ isCollapsed, setIsCollapsed }) {
             </div>
 
 
-            {/* =========================================================
-              2. SIDEBAR LATERAL ORIGINAL PARA COMPUTADORAS (Desktop)
-              ========================================================= */}
+            {/* Desktop */}
             <aside className={`hidden md:flex fixed top-0 left-0 h-screen bg-white border-r border-gray-200 transition-all duration-300 z-50 flex-col justify-between ${isCollapsed ? 'w-20' : 'w-64'}`}>
                 <div>
                     <div className="flex items-center justify-between h-16 px-4 border-b border-gray-100">
-                        {!isCollapsed && <span className="font-bold text-gray-800 text-lg">Hotel Palmeyras</span>}
+                        {!isCollapsed && <span className="font-bold text-gray-800 text-lg">Hotel Conquistador</span>}
                         <button
                             onClick={() => setIsCollapsed(!isCollapsed)}
                             className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 transition cursor-pointer mx-auto"

@@ -14,10 +14,19 @@ import CancelarRenta from './components/CancelarRenta';
 import RecepcionReportes from './components/RecepcionReportes';
 import AdminReportes from './components/AdminReportes';
 import AuditoriaLimpiezas from './components/AuditoriaLimpieza';
+import useIdleTimeout from './utils/useIdleTimeout';
+
+function ManejadorInactividad() {
+    useIdleTimeout(5); 
+    return null;
+}
 
 function App() {
   return (
     <BrowserRouter>
+
+      <ManejadorInactividad />
+
       <Routes>
         <Route path="/" element={<Login />} />
 
