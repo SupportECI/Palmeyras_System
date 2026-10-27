@@ -12,8 +12,10 @@ export default function useIdleTimeout(minutos = 5) {
 
     const resetearTemporizador = () => {
         if (timeoutRef.current) clearTimeout(timeoutRef.current);
-        // Multiplicamos los minutos por 60 segundos y por 1000 milisegundos
-        timeoutRef.current = setTimeout(cerrarSesion, minutos * 60 * 1000);
+        
+        if (location.pathname !== '/') {
+            timeoutRef.current = setTimeout(cerrarSesion, minutos * 60 * 1000);
+        }
     };
 
     useEffect(() => {
@@ -30,5 +32,5 @@ export default function useIdleTimeout(minutos = 5) {
             if (timeoutRef.current) clearTimeout(timeoutRef.current);
             eventos.forEach((evento) => document.removeEventListener(evento, resetearTemporizador));
         };
-    }, []);
+    }, [location.pathname, minutos]);
 }
